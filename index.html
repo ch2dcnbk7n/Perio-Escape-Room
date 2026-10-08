@@ -1,0 +1,1826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Operatory 624</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<style>
+/* Layout: full-bleed 3D operatory, thin HUD rails top and bottom, case sheets slide over the room like a film on a view box.
+   Deliberately single-theme: a radiology reading room at night. */
+:root {
+  --film: #0a1316;        /* reading-room black, slightly blue like film base */
+  --panel: #101d22;
+  --panel-2: #152830;
+  --line: #27404a;
+  --ink: #e6eff1;         /* phosphor white */
+  --muted: #92a9b0;
+  --coral: #f2887b;       /* "coral pink": healthy gingiva */
+  --coral-ink: #2a0f0b;
+  --mint: #6fd4a9;        /* correct */
+  --amber: #f1b65c;       /* hint / penalty */
+  --red: #f06464;         /* wrong */
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 6px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--film);
+  color: var(--ink);
+  font: 16px/1.5 var(--f-body);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+#app { position: fixed; inset: 0; }
+#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#scene.dragging { cursor: grabbing; }
+#scene.pointing { cursor: pointer; }
+.fallback-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 35%, #1b343c 0%, transparent 60%),
+    repeating-linear-gradient(90deg, transparent 0 79px, #ffffff08 79px 80px),
+    var(--film);
+}
+.fallback-note {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  width: min(440px, calc(100% - 32px)); text-align: center; color: var(--muted);
+}
+
+/* HUD */
+.hud-top {
+  position: absolute; left: 0; right: 0; top: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: linear-gradient(var(--film) 0%, #0a1316cc 60%, transparent);
+  pointer-events: none;
+}
+.hud-top > * { pointer-events: auto; }
+.brand { display: flex; align-items: baseline; gap: 10px; font-family: var(--f-display); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 20px; }
+.brand small { font-family: var(--f-body); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: 13px; }
+.timer { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.timer b { font-family: var(--f-mono); font-size: 22px; font-variant-numeric: tabular-nums; }
+.timer b.over { color: var(--amber); }
+.timer span { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.slots { display: flex; gap: 4px; }
+.slot {
+  width: 26px; height: 32px; border: 1px solid var(--line); border-radius: 4px;
+  display: grid; place-items: center; font-family: var(--f-mono); font-weight: 700; font-size: 15px;
+  color: var(--muted); background: #0a131699;
+}
+.slot.got { border-color: var(--mint); color: var(--mint); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--panel); border-radius: var(--r);
+  padding: 6px 10px; font-size: 13px; cursor: pointer; color: var(--muted);
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--muted); }
+
+.dock-wrap {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: linear-gradient(transparent, #0a1316d9 40%, var(--film));
+  display: flex; flex-direction: column; gap: 8px;
+}
+.help { font-size: 13px; color: var(--muted); text-align: center; }
+.help kbd { font-family: var(--f-mono); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--ink); }
+.dock { display: flex; gap: 8px; overflow-x: auto; justify-content: safe center; padding-bottom: 2px; scrollbar-width: thin; }
+.dock button {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); background: var(--panel); border-radius: var(--r);
+  padding: 7px 12px 7px 8px; cursor: pointer; text-align: left;
+}
+.dock button:hover { border-color: var(--coral); }
+.dock .num {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 700; background: var(--coral); color: var(--coral-ink);
+}
+.dock .lbl { display: flex; flex-direction: column; line-height: 1.15; }
+.dock .lbl b { font-family: var(--f-display); font-weight: 600; font-size: 16px; letter-spacing: .02em; }
+.dock .lbl span { font-size: 11px; color: var(--muted); }
+.dock button.done { border-color: #6fd4a955; }
+.dock button.done .num { background: var(--mint); }
+.dock button.door .num { background: var(--ink); color: var(--film); }
+
+.tip {
+  position: absolute; pointer-events: none; transform: translate(14px, 14px);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
+  padding: 4px 8px; font-size: 13px; white-space: nowrap;
+}
+.toast {
+  position: absolute; left: 50%; top: 76px; transform: translateX(-50%);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 8px 14px; font-size: 14px; max-width: calc(100% - 32px); text-align: center;
+  transition: opacity .3s;
+}
+
+/* Overlays and sheets */
+.overlay {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: #050a0cb3; backdrop-filter: blur(3px);
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  z-index: 10;
+}
+.sheet {
+  width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 30px 80px #000a; overflow: hidden;
+}
+.sheet-head { padding: 18px 60px 12px 22px; border-bottom: 1px solid var(--line); position: relative; }
+.sheet-head .pips { margin-right: -38px; }
+.eyebrow { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .12em; font-size: 13px; color: var(--coral); font-weight: 600; }
+.sheet h2, .sheet h1 { font-family: var(--f-display); font-weight: 700; margin: 2px 0 0; line-height: 1.05; text-wrap: balance; letter-spacing: .01em; }
+.sheet h2 { font-size: 30px; }
+.sheet h1 { font-size: clamp(40px, 8vw, 64px); text-transform: uppercase; letter-spacing: .02em; }
+.src { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.x {
+  position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 20px; line-height: 1; color: var(--muted);
+}
+.x:hover { color: var(--ink); }
+.pips { display: flex; gap: 6px; margin-top: 12px; }
+.pip { height: 4px; flex: 1; border-radius: 2px; background: var(--line); }
+.pip.now { background: var(--coral); }
+.pip.ok { background: var(--mint); }
+.pip.miss { background: var(--amber); }
+.sheet-body { padding: 18px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.sheet-foot { padding: 12px 22px 16px; border-top: 1px solid var(--line); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.sheet-foot .spacer { flex: 1; }
+.qcount { font-family: var(--f-mono); font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.prompt { font-size: 19px; line-height: 1.4; margin: 0; font-weight: 600; max-width: 62ch; }
+.prompt em { font-style: normal; color: var(--coral); }
+
+.btn {
+  border-radius: var(--r); padding: 10px 18px; cursor: pointer; font-weight: 700; font-size: 15px;
+  border: 1px solid var(--line); background: var(--panel-2);
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--coral); color: var(--coral-ink); border-color: var(--coral); }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.primary:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.btn.hint { color: var(--amber); border-color: #f1b65c55; background: transparent; }
+.btn.ghost { background: transparent; }
+
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt {
+  display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%;
+  border: 1px solid var(--line); background: var(--film); border-radius: var(--r);
+  padding: 10px 12px; cursor: pointer; font-size: 16px; line-height: 1.4;
+}
+.opt:hover { border-color: var(--muted); }
+.opt .key {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
+  display: grid; place-items: center; font-family: var(--f-mono); font-size: 12px; color: var(--muted); margin-top: 1px;
+}
+.opt.multi .key { border-radius: 4px; }
+.opt[aria-pressed="true"] { border-color: var(--coral); background: #f2887b14; }
+.opt[aria-pressed="true"] .key { background: var(--coral); border-color: var(--coral); color: var(--coral-ink); }
+.opt.right { border-color: var(--mint); background: #6fd4a914; }
+.opt.right .key { background: var(--mint); border-color: var(--mint); color: var(--film); }
+.opt.wrong { border-color: var(--red); background: #f0646414; }
+
+.rows { display: flex; flex-direction: column; gap: 8px; }
+.row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 10px; align-items: center;
+  border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; background: var(--film);
+}
+.row .left { font-size: 15px; font-weight: 600; min-width: 0; }
+.row select {
+  width: 100%; min-width: 0; padding: 8px 10px; border-radius: 4px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--ink); font: 15px var(--f-body);
+}
+.row.match { grid-template-columns: minmax(0, 1fr) 76px; }
+.row.match select { font: 700 16px var(--f-mono); text-align: center; }
+.row .chosen { display: block; font-weight: 400; font-size: 13px; color: var(--muted); margin-top: 2px; }
+.row .chosen:empty { display: none; }
+.bank { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bank li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.4; padding: 2px 0; }
+.bank .key {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line);
+  display: grid; place-items: center; font-family: var(--f-mono); font-size: 12px; font-weight: 700; color: var(--coral);
+}
+.row.right { border-color: var(--mint); }
+.row.wrong { border-color: var(--red); }
+@media (max-width: 560px) { .row:not(.match) { grid-template-columns: 1fr; } }
+
+.order { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.order li {
+  display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: var(--r);
+  padding: 8px 8px 8px 12px; background: var(--film);
+}
+.order li .n { font-family: var(--f-mono); font-size: 13px; color: var(--muted); width: 18px; }
+.order li .t { flex: 1; min-width: 0; font-size: 15px; }
+.order li .mv { display: flex; gap: 4px; }
+.order li .mv button {
+  width: 34px; height: 30px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; font-size: 14px;
+}
+.order li .mv button:disabled { opacity: .3; cursor: default; }
+.order li.right { border-color: var(--mint); }
+.order li.wrong { border-color: var(--red); }
+
+.num-in { display: flex; align-items: center; gap: 10px; }
+.num-in input {
+  width: 140px; padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--line);
+  background: var(--film); color: var(--ink); font: 700 22px var(--f-mono);
+}
+.num-in span { color: var(--muted); }
+
+.feedback { border-radius: var(--r); padding: 12px 14px; border: 1px solid var(--line); background: var(--film); font-size: 15px; }
+.feedback b { font-family: var(--f-display); font-size: 18px; letter-spacing: .03em; text-transform: uppercase; display: block; margin-bottom: 2px; }
+.feedback.ok { border-color: var(--mint); } .feedback.ok b { color: var(--mint); }
+.feedback.no { border-color: var(--red); } .feedback.no b { color: var(--red); }
+.feedback.hintbox { border-color: var(--amber); } .feedback.hintbox b { color: var(--amber); }
+.feedback.reveal { border-color: var(--amber); } .feedback.reveal b { color: var(--amber); }
+.feedback p { margin: 4px 0 0; }
+
+.digit-card { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.digit {
+  width: 96px; height: 120px; border-radius: 8px; border: 2px solid var(--mint); display: grid; place-items: center;
+  font: 700 72px var(--f-mono); color: var(--mint); background: #6fd4a910;
+}
+.digit-card p { margin: 0; max-width: 46ch; }
+
+/* Intro */
+.intro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+.obj { border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; background: var(--film); min-width: 0; }
+.obj .tag { font-family: var(--f-mono); font-size: 11px; color: var(--coral); letter-spacing: .04em; }
+.obj b { display: block; font-family: var(--f-display); font-size: 18px; font-weight: 600; line-height: 1.15; margin-top: 2px; }
+.obj span { font-size: 13px; color: var(--muted); display: block; margin-top: 3px; }
+.lede { font-size: 17px; max-width: 62ch; margin: 0; }
+.rules { margin: 0; padding-left: 18px; color: var(--muted); font-size: 15px; display: grid; gap: 2px; }
+.rules b { color: var(--ink); }
+
+/* Door keypad */
+.code-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.code-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 74px; }
+.code-cell input {
+  width: 46px; height: 56px; text-align: center; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--film); color: var(--ink); font: 700 26px var(--f-mono);
+}
+.code-cell input:focus { border-color: var(--coral); outline: none; }
+.code-cell label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; width: 100%; text-align: center; line-height: 1.15; overflow-wrap: anywhere; }
+.found { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.found div { border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
+.found div b { font-family: var(--f-mono); color: var(--mint); }
+.found div.miss b { color: var(--muted); }
+.shake { animation: shake .35s; }
+@keyframes shake { 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+
+/* Debrief */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; background: var(--film); }
+.stat span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.stat b { display: block; font: 700 26px var(--f-mono); font-variant-numeric: tabular-nums; }
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bar { display: grid; grid-template-columns: minmax(0, 1fr) 120px 48px; gap: 10px; align-items: center; font-size: 14px; }
+.bar .track { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--mint); }
+.bar .fill.low { background: var(--amber); }
+.bar .pct { font-family: var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.bar .nm small { color: var(--muted); display: block; font-size: 12px; }
+@media (max-width: 520px) { .bar { grid-template-columns: minmax(0, 1fr) 70px 44px; } }
+.review { display: flex; flex-direction: column; gap: 8px; }
+.review details { border: 1px solid var(--line); border-radius: var(--r); background: var(--film); padding: 8px 12px; }
+.review summary { cursor: pointer; font-weight: 600; }
+.review summary small { color: var(--muted); font-weight: 400; }
+.review p { margin: 6px 0 2px; font-size: 15px; color: var(--muted); }
+.h3 { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .08em; font-size: 15px; color: var(--muted); margin: 6px 0 0; font-weight: 600; }
+
+@media (max-width: 640px) {
+  .brand small { display: none; }
+  .slot { width: 20px; height: 26px; font-size: 13px; }
+  .help { display: none; }
+  .sheet h2 { font-size: 26px; }
+  .prompt { font-size: 17px; }
+  .sheet-head, .sheet-body, .sheet-foot { padding-left: 16px; padding-right: 16px; }
+  .sheet-head { padding-right: 56px; }
+}
+@media (prefers-reduced-motion: reduce) { .shake { animation: none; } .toast { transition: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="fallback-bg" id="fallback"><p class="fallback-note" id="fallbackNote" hidden>The 3D room could not load in this browser. Every station still works from the bar at the bottom of the screen.</p></div>
+  <canvas id="scene" aria-label="3D view of the locked operatory. Use the station bar to open stations without the mouse."></canvas>
+
+  <header class="hud-top">
+    <div class="brand">Operatory 624 <small>DEN 624 Periodontology I review</small></div>
+    <div class="slots" id="slots" aria-label="Exit code digits found"></div>
+    <div class="timer"><b id="timer">00:00</b><span>Target 15:00</span></div>
+    <button class="icon-btn" id="soundBtn" type="button" aria-pressed="false">Sound off</button>
+  </header>
+
+  <div class="dock-wrap">
+    <div class="help">Drag to look around. Walk with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or click the floor. Click a glowing station to open it.</div>
+    <nav class="dock" id="dock" aria-label="Stations"></nav>
+  </div>
+
+  <div class="tip" id="tip" hidden></div>
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- Intro -->
+  <div class="overlay" id="intro" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+    <div class="sheet">
+      <div class="sheet-head">
+        <div class="eyebrow">DEN 624 · Periodontology I · Tanner College of Dental Medicine</div>
+        <h1 id="introTitle">Operatory 624</h1>
+      </div>
+      <div class="sheet-body">
+        <p class="lede">It is 10:50 PM after the radiographic interpretation lecture and the clinic has locked itself down. The exit keypad needs a seven-digit code. Each workstation in the operatory holds one digit and releases it when you work through its cases.</p>
+        <div class="intro-grid" id="introObjs"></div>
+        <ul class="rules">
+          <li><b>Open stations in any order.</b> Click the glowing objects in the room or use the bar at the bottom.</li>
+          <li><b>Wrong answers add 15 seconds; hints add 30.</b> After two misses you can reveal the answer and keep going.</li>
+          <li><b>Every answer comes with the reasoning from the lecture slides.</b> A review sheet of anything you missed appears when you escape.</li>
+          <li><b>Aim to get out in about 15 minutes.</b></li>
+        </ul>
+      </div>
+      <div class="sheet-foot">
+        <span class="qcount" id="introCount"></span>
+        <span class="spacer"></span>
+        <button class="btn primary" id="startBtn" type="button">Enter the operatory</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Station / door sheet -->
+  <div class="overlay" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" hidden>
+    <div class="sheet" id="mSheet">
+      <div class="sheet-head">
+        <div class="eyebrow" id="mObj"></div>
+        <h2 id="mTitle"></h2>
+        <div class="src" id="mSrc"></div>
+        <button class="x" id="mClose" type="button" aria-label="Back to the room">×</button>
+        <div class="pips" id="mPips"></div>
+      </div>
+      <div class="sheet-body" id="mBody"></div>
+      <div class="sheet-foot" id="mFoot"></div>
+    </div>
+  </div>
+
+  <!-- Debrief -->
+  <div class="overlay" id="debrief" role="dialog" aria-modal="true" aria-labelledby="dTitle" hidden>
+    <div class="sheet">
+      <div class="sheet-head">
+        <div class="eyebrow">Door unlocked</div>
+        <h1 id="dTitle">You escaped</h1>
+        <div class="src" id="dSub"></div>
+      </div>
+      <div class="sheet-body" id="dBody"></div>
+      <div class="sheet-foot">
+        <span class="qcount" id="copyMsg"></span>
+        <span class="spacer"></span>
+        <button class="btn" id="copyBtn" type="button">Copy results</button>
+        <button class="btn primary" id="againBtn" type="button">Play again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== Content: drawn from "Perio Doc.pdf" (DEN 624 lecture slides) ===================== */
+const STATIONS = [
+  {
+    id: "lightbox", n: 1, name: "X-ray Lightbox", short: "Lightbox",
+    obj: "Objective 1 · Radiographic Features",
+    objText: "Identify radiographic appearance of restorations, appliances, implants, and foreign objects.",
+    src: "Radiographic Interpretation of Periodontal Disease (Bartlett, Oct 1)",
+    questions: [
+      {
+        type: "mcq",
+        prompt: "A bitewing of a periodontally healthy adult is clipped to the lightbox. Where should the interproximal alveolar crest sit?",
+        options: [
+          "0.5–2.0 mm apical to the CEJ, running flat and parallel to the adjacent CEJs in the posterior",
+          "Exactly at the CEJ, with no measurable distance",
+          "2–4 mm apical to the CEJ, rounded and diffuse",
+          "Anywhere in the coronal third of the root"
+        ],
+        answer: 0,
+        hint: "Horizontal bone loss is defined as the crest sitting beyond this normal range.",
+        explain: "A healthy crest sits about 0.5–2.0 mm apical to the CEJ. It runs flat and parallel to the adjacent CEJs in the posterior and is pointed and corticated in the anterior, continuous with the lamina dura. A crest more than 2 mm apical to the CEJ counts as bone loss. Missing cortication alone does not prove disease, and slight cervical PDL widening can be normal in adolescents."
+      },
+      {
+        type: "match",
+        prompt: "Match each image type to the job it does best in a periodontal workup.",
+        pairs: [
+          ["Bitewing (vertical if bone loss is significant)", "CEJ-to-crest distance and interproximal bone levels"],
+          ["Periapical, paralleling technique", "The whole root, for estimating % of root bone loss"],
+          ["Panoramic", "A one-image overview; not the primary perio image when intraorals are available"],
+          ["Small-volume CBCT", "Complex vertical, crater or furcation defects when surgery is planned"]
+        ],
+        hint: "Bitewings win on bone levels and periapicals on the whole root. Neither pano nor CBCT is routine for periodontal assessment.",
+        explain: "Intraoral images have the highest spatial resolution. Bitewings are best for bone levels, and vertical bitewings are used when the crest falls off a horizontal film. Periapicals show the entire root but distort more, especially in the maxilla with the bisecting technique. Panoramics have lower resolution, superimposition and distortion. CBCT removes superimposition but brings metal artifacts, higher dose and higher cost, so it is reserved for selected complex defects."
+      },
+      {
+        type: "multi",
+        prompt: "Reading a full-mouth series: which findings are restorative or appliance-related local irritating factors that retain plaque? Select all that apply.",
+        options: [
+          "Overhanging subgingival amalgam margin",
+          "Open interproximal contact with food impaction",
+          "Overcontoured crown or pontic",
+          "Retained cement around an implant crown",
+          "Orthodontic bands with plaque retention",
+          "A gutta-percha point placed in a draining sinus tract",
+          "A well-corticated alveolar crest",
+          "A thin, uniform PDL space"
+        ],
+        answer: [0, 1, 2, 3, 4],
+        hint: "Two of the wrong options describe healthy anatomy. One describes a radiopaque object that clinicians place on purpose as a diagnostic tracer.",
+        explain: "Deficient or overhanging margins, open contacts, overcontoured crowns and pontics, retained cement or poorly positioned implants, and orthodontic appliances all retain plaque, leading to inflammation and bone loss. A gutta-percha point in a fistula is a deliberate radiopaque marker that traces the defect's course and depth. A corticated crest and thin, uniform PDL space are signs of health. Calculus itself appears radiopaque as spiky, ring-like, nodular or smooth deposits."
+      }
+    ]
+  },
+  {
+    id: "bone", n: 2, name: "Bone Model", short: "Bone model",
+    obj: "Objective 2 · Bone Morphology & Trabecular Changes",
+    objText: "Changes in the shape of the alveolar process and in the internal density and trabecular pattern of bone.",
+    src: "Radiographic Interpretation of Periodontal Disease (Bartlett, Oct 1)",
+    questions: [
+      {
+        type: "match",
+        prompt: "Match each internal bone change to its description.",
+        pairs: [
+          ["Rarefaction", "Decreased density with faint trabeculae; typical of early or acute lesions"],
+          ["Sclerosis", "Thicker, denser trabeculae; typical of chronic, low-grade inflammation"],
+          ["Mixed pattern", "Rarefaction and sclerosis together; the most common reaction"],
+          ["Remineralization after therapy", "Makes cancellous bone visible and can falsely suggest bone growth"]
+        ],
+        hint: "Bone loss reads as more radiolucent and bone formation as more radiopaque. Periodontitis often shows both.",
+        explain: "Bone loss appears as increased radiolucency (rarefaction) and bone formation as increased radiopacity (sclerosis). Early or acute lesions are mostly bone loss; chronic lesions have more sclerosis. A mixed pattern is most common. After treatment, a sharp crestal cortex and a clear lamina dura suggest stabilization. Remineralization can make cancellous bone visible and mimic regrowth, and no radiographic change does not mean treatment failed."
+      },
+      {
+        type: "mcq",
+        prompt: "On a periapical film, what is the earliest radiographic sign that an angular (infrabony) defect is forming?",
+        options: [
+          "Widening of the PDL space at the alveolar crest",
+          "A radiolucent trough running between intact buccal and lingual plates",
+          "Loss of the lamina dura all the way to the apex",
+          "A crest that stays parallel to the adjacent CEJs but sits 3 mm apical"
+        ],
+        answer: 0,
+        hint: "Vertical defects start small, right at the crest, before they deepen down the root.",
+        explain: "Vertical defects begin as widening of the PDL space at the crest. They then progress down the root as a V-shaped or triangular radiolucency, leaving the remaining bone oblique to the line between the adjacent CEJs. They are typically associated with Stage III–IV periodontitis. The trough option describes an interdental crater, and the parallel crest describes horizontal bone loss. Before calling a crest vertical, compare it with the imaginary line between the adjacent CEJs."
+      },
+      {
+        type: "match",
+        prompt: "Match each furcation grade to its radiographic appearance.",
+        pairs: [
+          ["Grade I", "Early involvement; usually not visible radiographically"],
+          ["Grade II", "Partial bone loss; a radiolucency that can be hard to detect"],
+          ["Grade III", "Through-and-through loss; a clear \"crotch\" radiolucency"],
+          ["Grade IV", "Looks like Grade III, but recession exposes the furcation clinically"]
+        ],
+        hint: "Grades III and IV look the same on film. What separates them is what you can see in the mouth.",
+        explain: "The earliest radiographic furcation sign is PDL widening at the interradicular crest. Imaging limits matter: the external oblique ridge can hide mandibular third-molar furcations, convergent roots obscure second and third molars, and the palatal root blurs maxillary molar defects, which may appear as an inverted \"J\" or a radiolucent triangle. Complex furcations need clinical examination and, when needed, surgical exploration."
+      }
+    ]
+  },
+  {
+    id: "chart", n: 3, name: "Charting Terminal", short: "Chart",
+    obj: "Objective 3 · Periodontal Disease Classification",
+    objText: "Interpret bone loss patterns, severity, classifications, and contributing factors.",
+    src: "Radiographic Interpretation (Oct 1) · 1999 vs 2017 Classification, Staging & Grading (Sep 10)",
+    questions: [
+      {
+        type: "num",
+        prompt: "Charting #3 MB: probing depth 4 mm, and the gingival margin sits 2 mm apical to the CEJ (recession). What is the clinical attachment loss?",
+        answer: 6, tol: 0, unit: "mm",
+        hint: "When the margin is apical to the CEJ, add the recession to the probing depth. When it is coronal, subtract.",
+        explain: "CAL = probing depth + recession when the margin is apical to the CEJ, so 4 + 2 = 6 mm. When the margin is coronal to the CEJ you subtract. CAL and radiographic bone loss drive staging; probing depth alone would have under-staged this site."
+      },
+      {
+        type: "num",
+        prompt: "A 36-year-old has 45% radiographic bone loss at the worst site. What is the bone loss / age ratio? (two decimals)",
+        answer: 1.25, tol: 0.011, unit: "",
+        hint: "Divide the worst site's % bone loss by the patient's age.",
+        explain: "45 ÷ 36 = 1.25. A ratio above 1.0 indicates Grade C (rapid progression). 0.25–1.0 is Grade B and below 0.25 is Grade A. By comparison, a 70-year-old with 40% loss has a ratio of 0.57, which is Grade B."
+      },
+      {
+        type: "mcq",
+        prompt: "Worst interdental CAL is 4 mm with 25% bone loss (coronal third), maximum probing depth 5 mm, and no teeth lost to periodontitis. However, #19 has a Class III furcation. What stage is this?",
+        options: ["Stage I", "Stage II", "Stage III", "Stage IV"],
+        answer: 2,
+        hint: "CAL and bone loss alone point to one stage, but complexity factors can move a case up a stage.",
+        explain: "On CAL and bone loss alone this is Stage II, but Class II or III furcation involvement is a complexity factor that moves it to Stage III. The other Stage III complexity factors are vertical bone loss of 3 mm or more, PD of 6 mm or more and a moderate ridge defect. Stage IV needs 5 or more teeth lost to periodontitis, or functional problems that need rehabilitation such as bite collapse, drifting, flaring or masticatory dysfunction."
+      },
+      {
+        type: "compose",
+        prompt: "Write the full diagnosis. A 52-year-old smokes 15 cigarettes a day. Worst interdental CAL is 6 mm, bone loss reaches the middle third, 3 teeth have been lost to periodontitis, and there are vertical defects of 3 mm or more. 12 of 26 teeth are affected.",
+        rows: [
+          { label: "Stage", options: ["Stage I", "Stage II", "Stage III", "Stage IV"], answer: 2 },
+          { label: "Grade", options: ["Grade A", "Grade B", "Grade C"], answer: 2 },
+          { label: "Extent", options: ["Localized (<30% of teeth)", "Generalized (≥30% of teeth)", "Molar/incisor pattern"], answer: 1 }
+        ],
+        hint: "Smoking 10 or more cigarettes a day is a grade modifier, and 12 of 26 teeth is 46%.",
+        explain: "Stage III: CAL of 5 mm or more, bone loss into the middle third, and 4 or fewer teeth lost to periodontitis. Grade C: smoking 10 or more cigarettes a day (or HbA1c of 7% or more) is a Grade C modifier. Extent: 12 of 26 teeth is 46%, which is 30% or more, so generalized. The full diagnosis is generalized periodontitis, Stage III, Grade C."
+      }
+    ]
+  },
+  {
+    id: "cases", n: 4, name: "Case File Cabinet", short: "Case files",
+    obj: "Objective 4 · Differential Interpretation",
+    objText: "Identify types of periodontal disease, and processes that may mimic.",
+    src: "Radiographic Interpretation of Periodontal Disease (Bartlett, Oct 1)",
+    questions: [
+      {
+        type: "mcq",
+        prompt: "#30 does not respond to vitality testing. A deep angular defect, slightly wider coronally (funnel-shaped), runs from the crest down to a periapical radiolucency. What do you do first?",
+        options: [
+          "Endodontic therapy, then reassess and treat the periodontal defect as needed",
+          "Scaling and root planing, then endodontics if the defect persists",
+          "Extract; combined lesions do not heal",
+          "Systemic antibiotics alone"
+        ],
+        answer: 0,
+        hint: "Pulpal necrosis more commonly causes the periodontal breakdown than the other way around.",
+        explain: "This is an endodontic-periodontal lesion. Bacteria spread through the apical foramen, accessory canals and dentinal tubules. Endodontic therapy comes first because resolving the pulpal infection may allow the secondary periodontal defect to heal. Periodontal treatment follows as needed. Near an implant, persistent endodontic infection can cause retrograde peri-implantitis."
+      },
+      {
+        type: "match",
+        prompt: "Match each radiographic and clinical picture to the most likely interpretation.",
+        pairs: [
+          ["Teeth \"floating in space\"; destruction centered at mid-root; \"ice cream scoop\" lesions", "Langerhans cell histiocytosis"],
+          ["Ragged, ill-defined borders; irregular PDL widening along the whole root; no peripheral sclerosis", "Malignancy, such as squamous cell carcinoma"],
+          ["Hourglass-shaped PDL widening, thick hazy lamina dura, wear facets, mobility", "Occlusal trauma"],
+          ["Radiolucency over the root with a bridge of bone separating it from the crest; pain and pus", "Periodontal abscess (persistent)"],
+          ["Red, bleeding marginal gingiva; normal crest and intact lamina dura", "Gingivitis"]
+        ],
+        hint: "Periodontal bone loss starts at the crest and works apically. The mimics break that rule.",
+        explain: "One or a few loose adjacent teeth without generalized periodontal disease is a red flag. Periodontal bone loss begins at the crest and is larger coronally. Langerhans cell histiocytosis centers on the mid-root, and malignancy destroys the lamina dura with ragged borders and no sclerosis. In gingivitis the bone stays radiographically normal because inflammation is limited to the gingiva. An early, acute periodontal abscess may show no radiographic change at all."
+      },
+      {
+        type: "mcq",
+        prompt: "True or false: traumatic occlusal forces on their own can initiate periodontitis and pocket formation.",
+        options: [
+          "False. They do not cause gingivitis, periodontitis or pockets, but they can accelerate attachment and bone loss where periodontitis already exists.",
+          "True. Bruxism is a primary cause of pocket formation.",
+          "True, but only on multirooted teeth.",
+          "False. Occlusal forces have no effect on the periodontium."
+        ],
+        answer: 0,
+        hint: "Occlusal trauma can make existing periodontitis worse. Ask whether it can start the disease.",
+        explain: "Traumatic occlusion does not cause gingivitis, periodontitis, attachment loss or pockets, but it may accelerate destruction when periodontitis is present. Radiographic signs include a widened PDL (hourglass on single roots; apices and furcation on multirooted teeth), a thick hazy lamina dura, and sometimes hypercementosis or root fracture. Diagnosis is clinical. The 2017 terms separate traumatic occlusal force (the force) from occlusal trauma (the lesion)."
+      }
+    ]
+  },
+  {
+    id: "atlas", n: 5, name: "Clinical Atlas", short: "Atlas",
+    obj: "Course review · Gingival Diseases & 2017 Classification",
+    objText: "Describe, categorize, and ask what is missing before you diagnose.",
+    src: "Diagnosis and Classification Part I (Jones, Sep 24) · 1999 vs 2017 Classification (Sep 10)",
+    questions: [
+      {
+        type: "match",
+        prompt: "Name the 2017 AAP/EFP family for each presentation.",
+        pairs: [
+          ["Gingivitis that flares during pregnancy", "Biofilm-induced gingivitis, mediated by a systemic risk factor"],
+          ["Lobulated papillary overgrowth in a patient taking amlodipine", "Drug-influenced gingival enlargement"],
+          ["Ulcers on one half of the palate that stop at the midline", "Non-biofilm-induced: specific infection (viral)"],
+          ["Enlargement covering the teeth and delaying eruption; positive family history", "Non-biofilm-induced: genetic/developmental disorder"],
+          ["Desquamative gingiva with little plaque in a patient with lichen planus", "Non-biofilm-induced: inflammatory and immune condition"]
+        ],
+        hint: "Hormones modify plaque-induced gingivitis. Unilateral ulcers that follow a nerve suggest reactivated varicella zoster.",
+        explain: "Sex steroid hormones (puberty, menstrual cycle, pregnancy, oral contraceptives) modify biofilm-induced gingivitis. Phenytoin, cyclosporine and calcium channel blockers such as nifedipine and amlodipine cause drug-influenced enlargement. Herpes zoster follows the sensory nerve and does not cross the midline. Hereditary gingival fibromatosis runs in families. Lichen planus, pemphigus vulgaris and erythema multiforme produce desquamative gingiva."
+      },
+      {
+        type: "mcq",
+        prompt: "A 25-year-old has generalized gingival enlargement that is spongy, pale and without stippling. Plaque is minimal, there is no bleeding on probing, and they report extreme pallor, weight loss and fever. They take no medications. What is the next step?",
+        options: [
+          "Refer for a medical and hematologic workup (CBC with peripheral smear) for suspected leukemia",
+          "Diagnose drug-influenced enlargement and ask the physician to change the medication",
+          "Diagnose plaque-induced gingivitis and schedule a prophylaxis",
+          "Perform a gingivectomy to reduce the enlargement"
+        ],
+        answer: 0,
+        hint: "The amount of plaque does not explain how severe the enlargement is, and the systemic signs are significant.",
+        explain: "When local factors are out of proportion to the enlargement, BOP is absent, and pallor, lymphadenopathy, fever or weight loss are present, suspect leukemia. In the lecture's case the diagnosis was confirmed by hematologic examination and peripheral smear. Drug-influenced enlargement is ruled out by history. Photographs support pattern recognition but never establish a diagnosis on their own."
+      },
+      {
+        type: "multi",
+        prompt: "Select every statement that is true of the 2017/2018 AAP/EFP classification.",
+        options: [
+          "Chronic and aggressive periodontitis are combined into one disease, periodontitis",
+          "Stage describes severity and complexity of management; grade describes rate of progression",
+          "Smoking and HbA1c act as grade modifiers",
+          "It introduced the first comprehensive peri-implant classification",
+          "A former aggressive periodontitis diagnosis automatically converts to Grade C",
+          "Extent is based on the percentage of sites (localized ≤30% of sites)",
+          "The National Board still uses case types I–IV"
+        ],
+        answer: [0, 1, 2, 3],
+        hint: "Three of these describe the 1999 system or a common conversion mistake.",
+        explain: "The 2017 World Workshop (published 2018) uses four domains, merges chronic and aggressive periodontitis into periodontitis, and describes each case by stage, grade and extent. Grade C needs direct or indirect evidence of rapid progression; it is not an automatic conversion. Extent now counts teeth (localized <30%, generalized ≥30%) or a molar/incisor pattern. The National Board does not use the old case types I–IV."
+      }
+    ]
+  },
+  {
+    id: "micro", n: 6, name: "Microscope Bench", short: "Microscope",
+    obj: "Course review · Biofilm & Pathogenesis",
+    objText: "How dental biofilm forms, communicates, and shifts from health to disease.",
+    src: "Role of Dental Biofilm in Pathogenesis of Periodontal Disease (Jones)",
+    questions: [
+      {
+        type: "order",
+        prompt: "Put dental plaque formation in order, from a freshly cleaned tooth to a mature biofilm.",
+        items: [
+          "Acquired pellicle forms from salivary glycoproteins",
+          "Bacteria are transported to the surface",
+          "Initial adhesion",
+          "Strong attachment",
+          "Coadhesion builds microcolonies and a mature biofilm"
+        ],
+        hint: "Bacteria never touch the enamel directly. Something coats the tooth first.",
+        explain: "Bacteria attach to the acquired pellicle, not the enamel. The pellicle has a thin, tenacious basal layer and a thicker globular layer. Primary colonizers then provide receptors for later species (coadhesion), leading to microcolonies and a mature biofilm. Fluid channels carry nutrients and oxygen through it. In Löe's experimental gingivitis, plaque became clinically visible after about 36 hours without oral hygiene."
+      },
+      {
+        type: "match",
+        prompt: "Match each concept to its meaning.",
+        pairs: [
+          ["Nonspecific plaque hypothesis (Loesche, 1976)", "Noxious products of the whole plaque mass overwhelm host defenses"],
+          ["Specific plaque hypothesis", "Disease depends on particular pathogens such as the red complex"],
+          ["Ecologic plaque hypothesis (Marsh)", "A change in host or environment shifts the community toward disease"],
+          ["Quorum sensing", "A signal molecule reaching a threshold concentration switches on bacterial genes"],
+          ["Allogenic succession", "Community change driven by external, non-microbial factors such as smoking"]
+        ],
+        hint: "Autogenic succession comes from the microbes themselves. Allogenic succession comes from outside the community.",
+        explain: "Debridement and oral hygiene still follow the nonspecific hypothesis. The specific hypothesis grew from Socransky's work (40 species in more than 13,000 samples). The ecologic hypothesis adds host and environmental triggers such as pregnancy, immune disorders, smoking and diet. Quorum sensing uses peptides from gram-positive bacteria and autoinducer-2. Biofilm bacteria can be up to 1,000 times more resistant to antimicrobials."
+      },
+      {
+        type: "match",
+        prompt: "Match each condition to the microbes most associated with it.",
+        pairs: [
+          ["Periodontal health", "Gram-positive streptococci (S. oralis, S. sanguinis, S. mitis) and Actinomyces"],
+          ["Localized aggressive periodontitis (molar/incisor)", "Aggregatibacter actinomycetemcomitans"],
+          ["Necrotizing periodontal diseases", "Spirochetes (T. denticola), F. nucleatum, P. intermedia"],
+          ["Socransky's red complex", "P. gingivalis, T. forsythia, T. denticola"]
+        ],
+        hint: "In localized aggressive disease, one capnophilic gram-negative rod makes up about 90% of the cultivable flora.",
+        explain: "Health is sparse and mostly gram-positive facultative cocci and rods. Periodontitis sites run about 90% anaerobic and 75% gram-negative. A. actinomycetemcomitans dominates the molar/incisor pattern. Necrotizing disease (punched-out papillae, pseudomembrane, fetid odor and pain) is driven by spirochetes, Fusobacterium and P. intermedia; tetracyclines such as doxycycline concentrate in gingival crevicular fluid."
+      }
+    ]
+  },
+  {
+    id: "tray", n: 7, name: "Instrument Tray", short: "Instruments",
+    obj: "Course review · Instrumentation & Ergonomics",
+    objText: "Choose the instrument, the position and the finger rest for each sextant.",
+    src: "Instruments Utilized in Periodontal Therapy · Mirror and Finger Rests (Sep 24)",
+    questions: [
+      {
+        type: "match",
+        prompt: "Match each instrument to its design or use.",
+        pairs: [
+          ["Gracey 11/12", "Mesial surfaces of posterior teeth"],
+          ["Gracey 13/14", "Distal surfaces of posterior teeth"],
+          ["Universal curette", "Two cutting edges; adapts to all surfaces at 70–85°"],
+          ["Gracey After Five", "Terminal shank 3 mm longer, blade 10% thinner, for pockets ≥5 mm"],
+          ["Sickle scaler", "Pointed toe, triangular blade; heavy supragingival calculus"]
+        ],
+        hint: "In the Gracey series, odd-even pairs move from anterior to posterior: 5/6 for anteriors, 11/12 for posterior mesials, 13/14 for posterior distals.",
+        explain: "Gracey blades are offset 70° from the terminal shank, which leaves one working (lower) cutting edge; the terminal shank is held parallel to the surface. Universal curettes have a face at 90° to the shank and two cutting edges. The Mini Five keeps the After Five shank but has a 50% shorter blade for narrow pockets, furcations and grooves. The sickle works with its toe and the first 1–2 mm of the lateral edges."
+      },
+      {
+        type: "order",
+        prompt: "Put the sequence for establishing a finger rest in order.",
+        items: [
+          "Me: take the clock position for the treatment area",
+          "My patient: set chair and head position",
+          "My equipment: adjust the unit light",
+          "My nondominant hand: grasp and position the mirror",
+          "My dominant hand: grasp the instrument",
+          "My finger rest: establish it on the first tooth to be treated"
+        ],
+        hint: "Work from yourself outward, then to your hands, and end where the instrument meets the tooth.",
+        explain: "The sequence is me, my patient, my equipment, my nondominant hand, my dominant hand, my finger rest. Then pause and check: is the ring fingertip on a secure tooth surface, is the ring finger straight like a support beam, and is the grasp still correct?"
+      },
+      {
+        type: "mcq",
+        prompt: "A right-handed clinician is working on the mandibular anterior lingual surfaces, away from them. Where do they sit, and how is the patient's head positioned?",
+        options: ["12:00, chin down", "8–9:00, chin down", "12:00, chin up", "10–11:00, chin up"],
+        answer: 0,
+        hint: "Surfaces toward you are worked from the side; surfaces away from you are worked from behind. The mandible is worked with the chin down.",
+        explain: "For anterior surfaces toward the clinician, sit at 8–9:00; for surfaces away, sit at 12:00. The chin is down for the mandible and up for the maxilla. Left-handed clinicians mirror this at 4–3:00. Mandibular anterior work uses a palm-down handle position."
+      },
+      {
+        type: "multi",
+        prompt: "Select every correct technique statement.",
+        options: [
+          "Insert the blade closed (face nearly flat to the tooth), then open it to 45–90° for working strokes",
+          "With a Gracey, keep the terminal shank parallel to the surface being instrumented",
+          "Keep the fulcrum finger straight so it acts as a support beam",
+          "A front-surface mirror gives a clear image without distortion but scratches easily",
+          "Rest the fulcrum on the facial surface of a tooth for the most stability",
+          "A plane (flat) mirror is preferred because it magnifies the image",
+          "Smokers bleed more on probing, so their gingiva looks more inflamed"
+        ],
+        answer: [0, 1, 2, 3],
+        hint: "Saliva-covered facial surfaces are slippery. Nicotine is a vasoconstrictor.",
+        explain: "Insert closed, then open to the working angle (70–85° for a universal curette). Rest the fulcrum on an incisal or occlusal surface or a line angle, because facial and lingual surfaces are slippery with saliva. Avoid resting on mobile or badly decayed teeth. A plane mirror gives a ghost (double) image, and a concave mirror magnifies but distorts. Nicotine's vasoconstriction reduces bleeding on probing, so smokers can look deceptively healthy."
+      }
+    ]
+  }
+];
+
+/* ===================== Game state ===================== */
+const Game = (() => {
+  const $ = (id) => document.getElementById(id);
+  const WRONG_PENALTY = 15, HINT_PENALTY = 30, TARGET = 15 * 60;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let state, cur, scene3d = null, audio = null, soundOn = false, lastFocus = null;
+
+  const total = STATIONS.reduce((a, s) => a + s.questions.length, 0);
+
+  function shuffle(a) {
+    const b = a.slice();
+    for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
+    return b;
+  }
+  function freshState() {
+    const st = { started: false, escaped: false, startAt: 0, finishedElapsed: 0, penalty: 0, hints: 0, wrongs: 0, stations: {}, doorOrder: shuffle(STATIONS.map((s) => s.id)) };
+    for (const s of STATIONS) {
+      st.stations[s.id] = { solved: false, digit: Math.floor(Math.random() * 10), qi: 0, res: s.questions.map(() => ({ attempts: 0, hint: false, revealed: false, done: false, first: false })) };
+    }
+    return st;
+  }
+  const station = (id) => STATIONS.find((s) => s.id === id);
+  const solvedCount = () => STATIONS.filter((s) => state.stations[s.id].solved).length;
+  function elapsed() {
+    if (!state.started) return 0;
+    if (state.escaped) return state.finishedElapsed;
+    return (Date.now() - state.startAt) / 1000 + state.penalty;
+  }
+  const fmt = (sec) => { sec = Math.max(0, Math.floor(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); };
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  /* ---------- sound ---------- */
+  function beep(kind) {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const notes = { ok: [660, 880], no: [220, 180], unlock: [523, 659, 784, 1046], hint: [440] }[kind] || [440];
+      notes.forEach((f, i) => {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = kind === "no" ? "square" : "sine"; o.frequency.value = f;
+        const t = audio.currentTime + i * 0.09;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.18);
+      });
+    } catch (e) { /* audio is optional */ }
+  }
+
+  /* ---------- HUD ---------- */
+  function renderHud() {
+    $("slots").innerHTML = STATIONS.map((s) => {
+      const st = state.stations[s.id];
+      return `<div class="slot ${st.solved ? "got" : ""}" title="${esc(s.short)}">${st.solved ? st.digit : "·"}</div>`;
+    }).join("");
+    $("dock").innerHTML = STATIONS.map((s) => {
+      const st = state.stations[s.id];
+      const left = s.questions.length - st.res.filter((r) => r.done).length;
+      return `<button type="button" data-st="${s.id}" class="${st.solved ? "done" : ""}"><span class="num">${s.n}</span><span class="lbl"><b>${esc(s.short)}</b><span>${st.solved ? "Digit " + st.digit : left + " case" + (left === 1 ? "" : "s") + " left"}</span></span></button>`;
+    }).join("") + `<button type="button" data-st="door" class="door"><span class="num">⏻</span><span class="lbl"><b>Exit door</b><span>${solvedCount()}/7 digits</span></span></button>`;
+  }
+  function tick() {
+    const t = elapsed();
+    const el = $("timer");
+    el.textContent = fmt(t);
+    el.classList.toggle("over", t > TARGET);
+  }
+  let toastT;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false; t.style.opacity = 1;
+    clearTimeout(toastT); toastT = setTimeout(() => { t.style.opacity = 0; setTimeout(() => (t.hidden = true), 300); }, 2600);
+  }
+
+  /* ---------- modal plumbing ---------- */
+  function showModal() { lastFocus = document.activeElement; $("modal").hidden = false; setTimeout(() => { const f = $("mBody").querySelector("button, input, select") || $("mFoot").querySelector("button"); f && f.focus(); }, 30); }
+  function closeModal() {
+    $("modal").hidden = true; cur = null; renderHud();
+    if (lastFocus && lastFocus.focus && document.body.contains(lastFocus)) lastFocus.focus();
+  }
+  const isModalOpen = () => !$("modal").hidden || !$("intro").hidden || !$("debrief").hidden;
+
+  function setHead(s) {
+    $("mObj").textContent = s.obj;
+    $("mTitle").textContent = `${s.n}. ${s.name}`;
+    $("mSrc").textContent = "From: " + s.src;
+    const st = state.stations[s.id];
+    $("mPips").innerHTML = st.res.map((r, i) => `<div class="pip ${r.done ? (r.first ? "ok" : "miss") : i === st.qi ? "now" : ""}"></div>`).join("");
+  }
+
+  /* ---------- stations ---------- */
+  function openStation(id) {
+    if (!state.started || state.escaped) return;
+    if (id === "door") return openDoor();
+    const s = station(id), st = state.stations[id];
+    setHead(s);
+    if (st.solved) renderSolved(s); else renderQuestion(s);
+    showModal();
+  }
+
+  function renderSolved(s) {
+    const st = state.stations[s.id];
+    $("mBody").innerHTML = `<div class="digit-card"><div class="digit" aria-label="Digit ${st.digit}">${st.digit}</div><p>This station is cleared. Its digit is <b>${st.digit}</b>; the exit door plate tells you where it goes in the code.</p></div>
+      <div class="h3">Cases at this station</div>
+      <div class="review">${s.questions.map((q, i) => `<details><summary>${st.res[i].first ? "✓" : "◦"} ${esc(q.prompt)}</summary><p>${esc(q.explain)}</p></details>`).join("")}</div>`;
+    $("mFoot").innerHTML = `<span class="spacer"></span><button class="btn primary" type="button" data-act="close">Back to the room</button>`;
+  }
+
+  function renderQuestion(s) {
+    const st = state.stations[s.id], q = s.questions[st.qi], r = st.res[st.qi];
+    cur = { s, q, r, sel: null, answered: false };
+    if (!q._order) {
+      if (q.type === "mcq" || q.type === "multi") q._order = shuffle(q.options.map((_, i) => i));
+      if (q.type === "match") q._opts = shuffle(q.pairs.map((p) => p[1]));
+      if (q.type === "order") { let o; do { o = shuffle(q.items.map((_, i) => i)); } while (o.every((v, i) => v === i)); q._order = o; }
+    }
+    let area = "";
+    if (q.type === "mcq" || q.type === "multi") {
+      cur.sel = new Set();
+      const multi = q.type === "multi";
+      area = `<div class="opts" role="${multi ? "group" : "radiogroup"}">${q._order.map((oi, k) => `<button type="button" class="opt ${multi ? "multi" : ""}" data-oi="${oi}" aria-pressed="false"><span class="key">${String.fromCharCode(65 + k)}</span><span>${esc(q.options[oi])}</span></button>`).join("")}</div>`;
+      if (multi) area = `<div class="qcount">Select all that apply</div>` + area;
+    } else if (q.type === "num") {
+      area = `<div class="num-in"><input id="numIn" type="text" inputmode="decimal" autocomplete="off" aria-label="Your answer"><span>${esc(q.unit || "")}</span></div>`;
+    } else if (q.type === "match") {
+      area = `<ol class="bank">${q._opts.map((o, k) => `<li><span class="key">${String.fromCharCode(65 + k)}</span><span>${esc(o)}</span></li>`).join("")}</ol>
+        <div class="rows">${q.pairs.map((p, i) => `<div class="row match" data-row="${i}"><div class="left">${esc(p[0])}<small class="chosen" id="ch_${i}"></small></div><select id="m_${s.id}_${st.qi}_${i}" aria-label="Letter for ${esc(p[0])}"><option value="">–</option>${q._opts.map((o, k) => `<option value="${k}">${String.fromCharCode(65 + k)}</option>`).join("")}</select></div>`).join("")}</div>`;
+    } else if (q.type === "compose") {
+      area = `<div class="rows">${q.rows.map((row, i) => `<div class="row" data-row="${i}"><div class="left">${esc(row.label)}</div><select id="c_${s.id}_${i}" aria-label="${esc(row.label)}"><option value="">Choose…</option>${row.options.map((o, oi) => `<option value="${oi}">${esc(o)}</option>`).join("")}</select></div>`).join("")}</div>`;
+    } else if (q.type === "order") {
+      cur.sel = q._order.slice();
+      area = `<ol class="order" id="orderList"></ol>`;
+    }
+    $("mBody").innerHTML = `<div class="qcount">Case ${st.qi + 1} of ${s.questions.length}</div><p class="prompt">${esc(q.prompt)}</p>${area}<div id="fb"></div>`;
+    if (q.type === "order") drawOrder();
+    if (r.hint) showHint(false);
+    renderFoot();
+  }
+
+  function showChosen(i) {
+    const sel = document.querySelector(`#mBody .row[data-row="${i}"] select`), out = $("ch_" + i);
+    if (sel && out) out.textContent = sel.value === "" ? "" : cur.q._opts[Number(sel.value)];
+  }
+  function drawOrder() {
+    const q = cur.q, ol = $("orderList");
+    ol.innerHTML = cur.sel.map((ii, k) => `<li data-k="${k}"><span class="n">${k + 1}</span><span class="t">${esc(q.items[ii])}</span><span class="mv"><button type="button" data-mv="-1" data-k="${k}" aria-label="Move up" ${k === 0 ? "disabled" : ""}>▲</button><button type="button" data-mv="1" data-k="${k}" aria-label="Move down" ${k === cur.sel.length - 1 ? "disabled" : ""}>▼</button></span></li>`).join("");
+  }
+
+  function renderFoot() {
+    const r = cur.r;
+    const parts = [];
+    if (!cur.answered) {
+      if (!r.hint) parts.push(`<button class="btn hint" type="button" data-act="hint">Hint (+${HINT_PENALTY} s)</button>`);
+      if (r.attempts >= 2) parts.push(`<button class="btn ghost" type="button" data-act="reveal">Show the answer</button>`);
+      parts.push(`<span class="spacer"></span><button class="btn primary" type="button" data-act="check">Check answer</button>`);
+    } else {
+      const st = state.stations[cur.s.id];
+      const last = st.qi === cur.s.questions.length - 1;
+      parts.push(`<span class="spacer"></span><button class="btn primary" type="button" data-act="next">${last ? "Release the digit" : "Next case"}</button>`);
+    }
+    $("mFoot").innerHTML = parts.join("");
+  }
+
+  function showHint(charge) {
+    const r = cur.r;
+    if (charge && !r.hint) { r.hint = true; state.hints++; state.penalty += HINT_PENALTY; beep("hint"); tick(); }
+    const box = document.createElement("div");
+    box.className = "feedback hintbox"; box.id = "hintBox";
+    box.innerHTML = `<b>Hint</b>${esc(cur.q.hint)}`;
+    const old = $("hintBox"); if (old) old.remove();
+    $("fb").before(box);
+    renderFoot();
+  }
+
+  function evaluate() {
+    const q = cur.q;
+    if (q.type === "mcq") {
+      const pick = [...cur.sel][0];
+      if (pick === undefined) return null;
+      return { ok: pick === q.answer };
+    }
+    if (q.type === "multi") {
+      if (!cur.sel.size) return null;
+      const want = new Set(q.answer);
+      return { ok: cur.sel.size === want.size && [...cur.sel].every((v) => want.has(v)) };
+    }
+    if (q.type === "num") {
+      const raw = $("numIn").value.trim().replace(",", ".");
+      if (!raw) return null;
+      const v = parseFloat(raw);
+      if (Number.isNaN(v)) return { ok: false, msg: "Enter a number." };
+      return { ok: Math.abs(v - q.answer) <= (q.tol || 0) + 1e-9 };
+    }
+    if (q.type === "match" || q.type === "compose") {
+      const rows = [...$("mBody").querySelectorAll(".row")];
+      const vals = rows.map((row) => row.querySelector("select").value);
+      if (vals.some((v) => v === "")) return { ok: false, incomplete: true };
+      const res = rows.map((row, i) => q.type === "match" ? q._opts[Number(vals[i])] === q.pairs[i][1] : Number(vals[i]) === q.rows[i].answer);
+      return { ok: res.every(Boolean), rows: res };
+    }
+    if (q.type === "order") {
+      const res = cur.sel.map((ii, k) => ii === k);
+      return { ok: res.every(Boolean), rows: res };
+    }
+  }
+
+  function check() {
+    const res = evaluate();
+    if (!res) { toast("Choose an answer first."); return; }
+    if (res.incomplete) { toast("Fill in every row first."); return; }
+    if (res.msg) { toast(res.msg); return; }
+    const r = cur.r, fb = $("fb");
+    // clear prior marks
+    $("mBody").querySelectorAll(".right, .wrong").forEach((e) => e.classList.remove("right", "wrong"));
+    if (res.ok) {
+      r.done = true; r.first = r.attempts === 0 && !r.hint; cur.answered = true;
+      fb.className = "feedback ok";
+      fb.innerHTML = `<b>${r.first ? "Correct on the first try" : "Correct"}</b><p>${esc(cur.q.explain)}</p>`;
+      markCorrect();
+      lock();
+      fb.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+      beep("ok");
+      setHead(cur.s);
+    } else {
+      r.attempts++; state.wrongs++; state.penalty += WRONG_PENALTY; tick();
+      let detail = "";
+      if (res.rows) {
+        const n = res.rows.filter(Boolean).length;
+        detail = `${n} of ${res.rows.length} are in the right place. The rows outlined in red need another look.`;
+        const els = cur.q.type === "order" ? [...$("orderList").children] : [...$("mBody").querySelectorAll(".row")];
+        res.rows.forEach((ok, i) => els[i] && els[i].classList.add(ok ? "right" : "wrong"));
+      } else if (cur.q.type === "multi") {
+        detail = "Your selection is not quite right. Check which options belong and which do not.";
+      } else {
+        detail = "Look at it again.";
+      }
+      fb.className = "feedback no";
+      fb.innerHTML = `<b>Not yet (+${WRONG_PENALTY} s)</b>${detail}${r.attempts >= 2 ? " You can now show the answer if you are stuck." : ""}`;
+      fb.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+      beep("no");
+      const sheet = $("mSheet"); sheet.classList.remove("shake"); void sheet.offsetWidth; sheet.classList.add("shake");
+    }
+    renderFoot();
+  }
+
+  function markCorrect() {
+    const q = cur.q;
+    if (q.type === "mcq" || q.type === "multi") {
+      const want = q.type === "mcq" ? new Set([q.answer]) : new Set(q.answer);
+      $("mBody").querySelectorAll(".opt").forEach((b) => {
+        const oi = Number(b.dataset.oi);
+        b.setAttribute("aria-pressed", "false");
+        if (want.has(oi)) b.classList.add("right");
+        else if (cur.sel.has(oi)) b.classList.add("wrong");
+      });
+    } else if (q.type === "match" || q.type === "compose") {
+      $("mBody").querySelectorAll(".row").forEach((row) => row.classList.add("right"));
+    } else if (q.type === "order") {
+      [...$("orderList").children].forEach((li) => li.classList.add("right"));
+    }
+  }
+  function lock() {
+    $("mBody").querySelectorAll(".opt, select, input, .mv button").forEach((e) => (e.disabled = true));
+  }
+
+  function reveal() {
+    const q = cur.q, r = cur.r;
+    r.revealed = true; r.done = true; r.first = false; cur.answered = true;
+    if (q.type === "mcq") cur.sel = new Set();
+    if (q.type === "multi") cur.sel = new Set();
+    if (q.type === "num") $("numIn").value = q.answer;
+    if (q.type === "match") $("mBody").querySelectorAll(".row").forEach((row, i) => { row.querySelector("select").value = String(q._opts.indexOf(q.pairs[i][1])); showChosen(i); });
+    if (q.type === "compose") $("mBody").querySelectorAll(".row").forEach((row, i) => (row.querySelector("select").value = String(q.rows[i].answer)));
+    if (q.type === "order") { cur.sel = q.items.map((_, i) => i); drawOrder(); }
+    $("mBody").querySelectorAll(".right, .wrong").forEach((e) => e.classList.remove("right", "wrong"));
+    markCorrect(); lock();
+    const fb = $("fb");
+    fb.className = "feedback reveal";
+    fb.innerHTML = `<b>Answer shown</b><p>${esc(q.explain)}</p>`;
+    setHead(cur.s);
+    renderFoot();
+  }
+
+  function next() {
+    const s = cur.s, st = state.stations[s.id];
+    if (st.qi < s.questions.length - 1) {
+      st.qi++; setHead(s); renderQuestion(s);
+      const f = $("mBody").querySelector("button, input, select"); f && f.focus();
+      return;
+    }
+    st.solved = true;
+    beep("unlock");
+    setHead(s);
+    const firsts = st.res.filter((r) => r.first).length;
+    $("mBody").innerHTML = `<div class="digit-card"><div class="digit">${st.digit}</div><p><b>Digit released.</b> You got ${firsts} of ${s.questions.length} cases at this station on the first try. ${solvedCount() === 7 ? "That is all seven digits. Head for the exit door." : `${7 - solvedCount()} station${7 - solvedCount() === 1 ? "" : "s"} still locked.`}</p></div>`;
+    $("mFoot").innerHTML = `<span class="spacer"></span><button class="btn primary" type="button" data-act="close">Back to the room</button>`;
+    renderHud();
+    scene3d && scene3d.markSolved(s.id, st.digit);
+    if (solvedCount() === 7) scene3d && scene3d.markDoorReady();
+  }
+
+  /* ---------- door ---------- */
+  function openDoor() {
+    $("mObj").textContent = "Exit";
+    $("mTitle").textContent = "Operatory door";
+    $("mSrc").textContent = "";
+    $("mPips").innerHTML = "";
+    const n = solvedCount();
+    if (n < 7) {
+      $("mBody").innerHTML = `<p class="prompt">The keypad stays dark until all seven digits are found. You have ${n} of 7.</p>
+        <div class="found">${STATIONS.map((s) => { const st = state.stations[s.id]; return `<div class="${st.solved ? "" : "miss"}"><span>${s.n}. ${esc(s.short)}</span><b>${st.solved ? st.digit : "?"}</b></div>`; }).join("")}</div>`;
+      $("mFoot").innerHTML = `<span class="spacer"></span><button class="btn primary" type="button" data-act="close">Back to the room</button>`;
+    } else {
+      $("mBody").innerHTML = `<p class="prompt">The plate on the keypad lists the stations in a scrambled order. Enter each station's digit in the box under its name.</p>
+        <div class="code-row" id="codeRow">${state.doorOrder.map((id, i) => `<div class="code-cell"><input id="code_${i}" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="Digit for ${esc(station(id).short)}"><label for="code_${i}">${esc(station(id).short)}</label></div>`).join("")}</div>
+        <div class="found">${STATIONS.map((s) => `<div><span>${s.n}. ${esc(s.short)}</span><b>${state.stations[s.id].digit}</b></div>`).join("")}</div>
+        <div id="doorFb"></div>`;
+      $("mFoot").innerHTML = `<button class="btn ghost" type="button" data-act="close">Back</button><span class="spacer"></span><button class="btn primary" type="button" data-act="unlock">Unlock the door</button>`;
+      const inputs = [...document.querySelectorAll("#codeRow input")];
+      inputs.forEach((inp, i) => {
+        inp.addEventListener("input", () => { inp.value = inp.value.replace(/\D/g, "").slice(-1); if (inp.value && inputs[i + 1]) inputs[i + 1].focus(); });
+        inp.addEventListener("keydown", (e) => { if (e.key === "Backspace" && !inp.value && inputs[i - 1]) inputs[i - 1].focus(); if (e.key === "Enter") tryUnlock(); });
+      });
+    }
+    showModal();
+  }
+  function tryUnlock() {
+    const inputs = [...document.querySelectorAll("#codeRow input")];
+    const ok = state.doorOrder.every((id, i) => inputs[i].value === String(state.stations[id].digit));
+    if (!ok) {
+      state.penalty += WRONG_PENALTY; state.wrongs++; tick(); beep("no");
+      $("doorFb").className = "feedback no";
+      $("doorFb").innerHTML = `<b>Wrong code (+${WRONG_PENALTY} s)</b>Match each box's label to that station's digit.`;
+      const sheet = $("mSheet"); sheet.classList.remove("shake"); void sheet.offsetWidth; sheet.classList.add("shake");
+      return;
+    }
+    beep("unlock");
+    state.finishedElapsed = elapsed(); state.escaped = true;
+    $("modal").hidden = true;
+    scene3d && scene3d.openDoor();
+    setTimeout(renderDebrief, 900);
+  }
+
+  /* ---------- debrief ---------- */
+  function summary() {
+    const rows = STATIONS.map((s) => {
+      const st = state.stations[s.id];
+      const f = st.res.filter((r) => r.first).length;
+      return { s, f, n: s.questions.length, pct: Math.round((100 * f) / s.questions.length) };
+    });
+    const first = rows.reduce((a, r) => a + r.f, 0);
+    return { rows, first, pct: Math.round((100 * first) / total) };
+  }
+  function renderDebrief() {
+    const t = state.finishedElapsed, sm = summary();
+    $("dTitle").textContent = t <= TARGET ? "Out on time" : "You escaped";
+    $("dSub").textContent = t <= TARGET ? `Escaped in ${fmt(t)}, inside the 15-minute target.` : `Escaped in ${fmt(t)}. The target was 15:00. Review the cases below and try again.`;
+    const missed = [];
+    STATIONS.forEach((s) => s.questions.forEach((q, i) => { const r = state.stations[s.id].res[i]; if (!r.first) missed.push({ s, q, r }); }));
+    $("dBody").innerHTML = `
+      <div class="stats">
+        <div class="stat"><span>Time</span><b>${fmt(t)}</b></div>
+        <div class="stat"><span>First-try</span><b>${sm.first}/${total}</b></div>
+        <div class="stat"><span>Penalties</span><b>${fmt(state.penalty)}</b></div>
+        <div class="stat"><span>Hints</span><b>${state.hints}</b></div>
+      </div>
+      <div class="h3">First-try accuracy by objective</div>
+      <div class="bars">${sm.rows.map((r) => `<div class="bar"><div class="nm">${esc(r.s.obj.replace(/^Objective (\d) · /, "Obj $1 · ").replace(/^Course review · /, ""))}<small>${esc(r.s.name)}</small></div><div class="track"><div class="fill ${r.pct < 67 ? "low" : ""}" style="width:${r.pct}%"></div></div><div class="pct">${r.f}/${r.n}</div></div>`).join("")}</div>
+      <div class="h3">${missed.length ? `Review sheet: ${missed.length} case${missed.length === 1 ? "" : "s"} to revisit` : "Review sheet"}</div>
+      ${missed.length ? `<div class="review">${missed.map(({ s, q, r }) => `<details><summary>${esc(q.prompt)} <small>· ${esc(s.short)}${r.revealed ? ", answer shown" : r.hint && !r.attempts ? ", hint used" : ""}</small></summary><p>${esc(q.explain)}</p></details>`).join("")}</div>` : `<p class="lede">Every case right on the first try, with no hints.</p>`}`;
+    $("debrief").hidden = false;
+    $("copyMsg").textContent = "";
+    $("againBtn").focus();
+  }
+  function resultsText() {
+    const sm = summary();
+    return [
+      `Operatory 624 (DEN 624 review): escaped in ${fmt(state.finishedElapsed)}`,
+      `First-try accuracy ${sm.first}/${total} (${sm.pct}%), penalties ${fmt(state.penalty)}, hints ${state.hints}`,
+      ...sm.rows.map((r) => `- ${r.s.obj}: ${r.f}/${r.n}`)
+    ].join("\n");
+  }
+  function copyResults() {
+    const text = resultsText();
+    const done = (m) => ($("copyMsg").textContent = m);
+    try {
+      navigator.clipboard.writeText(text).then(() => done("Copied"), () => fallbackCopy(text, done));
+    } catch (e) { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done) {
+    const ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.width = "100%"; ta.rows = 8; ta.id = "copyArea";
+    const old = document.getElementById("copyArea"); if (old) old.remove();
+    $("dBody").appendChild(ta); ta.select();
+    done("Select the text above and copy it");
+  }
+
+  /* ---------- lifecycle ---------- */
+  function start() {
+    state.started = true; state.startAt = Date.now();
+    $("intro").hidden = true;
+    renderHud(); tick();
+    toast("Find the seven glowing stations.");
+  }
+  function restart() {
+    STATIONS.forEach((s) => s.questions.forEach((q) => { delete q._order; delete q._opts; }));
+    state = freshState();
+    $("debrief").hidden = true;
+    scene3d && scene3d.reset();
+    start();
+  }
+
+  function boot(data) {
+    state = data && data.state ? data.state : freshState();
+    soundOn = !!(data && data.soundOn);
+    $("soundBtn").textContent = soundOn ? "Sound on" : "Sound off";
+    $("soundBtn").setAttribute("aria-pressed", String(soundOn));
+    $("introObjs").innerHTML = STATIONS.map((s) => `<div class="obj"><div class="tag">STATION ${s.n} · ${esc(s.short.toUpperCase())}</div><b>${esc(s.obj.replace(/^Objective \d · |^Course review · /, ""))}</b><span>${esc(s.obj.startsWith("Objective") ? s.obj.split(" · ")[0] + ": " + s.objText : s.objText)}</span></div>`).join("") + `<div class="obj"><div class="tag">EXIT DOOR</div><b>Seven-digit keypad</b><span>Enter each station's digit in the order printed on the door plate.</span></div>`;
+    $("introCount").textContent = `7 stations · ${total} cases · about 15 minutes`;
+    renderHud(); tick();
+    if (state.started) {
+      $("intro").hidden = true;
+      // resume the clock where it was
+      if (!state.escaped && data.elapsedRaw != null) state.startAt = Date.now() - data.elapsedRaw * 1000;
+      if (state.escaped) renderDebrief();
+    }
+    setInterval(tick, 500);
+
+    $("startBtn").addEventListener("click", start);
+    $("againBtn").addEventListener("click", restart);
+    $("copyBtn").addEventListener("click", copyResults);
+    $("mClose").addEventListener("click", closeModal);
+    $("soundBtn").addEventListener("click", () => {
+      soundOn = !soundOn;
+      $("soundBtn").textContent = soundOn ? "Sound on" : "Sound off";
+      $("soundBtn").setAttribute("aria-pressed", String(soundOn));
+      beep("ok");
+    });
+    $("dock").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-st]"); if (!b) return;
+      if (!state.started) return;
+      const id = b.dataset.st;
+      if (scene3d) scene3d.focus(id, () => openStation(id)); else openStation(id);
+    });
+    $("mFoot").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-act]"); if (!b) return;
+      ({ hint: () => showHint(true), check, reveal, next, close: closeModal, unlock: tryUnlock })[b.dataset.act]();
+    });
+    $("mBody").addEventListener("click", (e) => {
+      if (!cur || cur.answered) return;
+      const opt = e.target.closest(".opt");
+      if (opt && !opt.disabled) {
+        const oi = Number(opt.dataset.oi);
+        if (cur.q.type === "mcq") {
+          cur.sel = new Set([oi]);
+          $("mBody").querySelectorAll(".opt").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.oi) === oi)));
+        } else {
+          cur.sel.has(oi) ? cur.sel.delete(oi) : cur.sel.add(oi);
+          opt.setAttribute("aria-pressed", String(cur.sel.has(oi)));
+        }
+        return;
+      }
+      const mv = e.target.closest("button[data-mv]");
+      if (mv && !mv.disabled) {
+        const k = Number(mv.dataset.k), d = Number(mv.dataset.mv), j = k + d;
+        [cur.sel[k], cur.sel[j]] = [cur.sel[j], cur.sel[k]];
+        drawOrder();
+        const again = $("orderList").querySelector(`button[data-k="${j}"][data-mv="${d}"]`) || $("orderList").querySelector(`button[data-k="${j}"]`);
+        again && again.focus();
+      }
+    });
+    $("mBody").addEventListener("change", (e) => {
+      const row = e.target.closest(".row.match");
+      if (row && cur) showChosen(Number(row.dataset.row));
+    });
+    $("mBody").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "numIn") check(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("modal").hidden) closeModal(); });
+
+    // Fallback if the 3D module never arrives.
+    setTimeout(() => { if (!scene3d) $("fallbackNote").hidden = false; }, 7000);
+
+    window.claude?.hot?.snapshot?.(() => ({ state, soundOn, elapsedRaw: state.started && !state.escaped ? (Date.now() - state.startAt) / 1000 : null }));
+  }
+
+  return {
+    boot, openStation, isModalOpen,
+    isStarted: () => state && state.started && !state.escaped,
+    stations: () => STATIONS.map((s) => ({ id: s.id, n: s.n, name: s.name, short: s.short, solved: state.stations[s.id].solved, digit: state.stations[s.id].digit })),
+    allSolved: () => solvedCount() === 7,
+    attach3D(api) { scene3d = api; document.getElementById("fallback").hidden = true; }
+  };
+})();
+window.Game = Game;
+(window.claude?.hot?.ready ? (fn) => window.claude.hot.ready(fn) : (fn) => fn(window.claude?.hot?.data ?? {}))((data) => Game.boot(data));
+</script>
+
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from "three";
+
+const G = window.Game;
+await Promise.race([
+  Promise.all([document.fonts.load('700 50px "Barlow Condensed"'), document.fonts.load('700 40px "JetBrains Mono"')]).catch(() => {}),
+  new Promise((r) => setTimeout(r, 2500))
+]);
+const canvas = document.getElementById("scene");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+} catch (e) {
+  document.getElementById("fallbackNote").hidden = false;
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a1316);
+scene.fog = new THREE.Fog(0x0a1316, 14, 30);
+const camera = new THREE.PerspectiveCamera(68, 1, 0.05, 60);
+camera.rotation.order = "YXZ";
+
+const ROOM = { w: 14, d: 12, h: 3.3 };
+const BOUNDS = { x: 6.3, zMin: -5.2, zMax: 5.4 };
+
+/* ---------- helpers ---------- */
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  draw(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  return t;
+}
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.05, ...o });
+const metal = (color = 0xb9c3c7) => new THREE.MeshStandardMaterial({ color, roughness: 0.28, metalness: 0.85 });
+function box(w, h, d, mat, x = 0, y = 0, z = 0, parent) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); (parent || scene).add(m); return m;
+}
+function cyl(rt, rb, h, mat, x = 0, y = 0, z = 0, parent, seg = 24) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat); m.position.set(x, y, z); (parent || scene).add(m); return m;
+}
+function wrapText(ctx, text, x, y, maxW, lh) {
+  const words = text.split(" "); let line = "";
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y); line = w; y += lh; } else line = test;
+  }
+  ctx.fillText(line, x, y); return y;
+}
+const FONT_D = '"Barlow Condensed", "Arial Narrow", sans-serif';
+const FONT_M = '"JetBrains Mono", Menlo, monospace';
+
+/* ---------- room shell ---------- */
+const floorTex = canvasTex(512, 512, (g, w, h) => {
+  g.fillStyle = "#3b4a4c"; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const v = 52 + ((i * 7 + j * 13) % 9);
+    g.fillStyle = `rgb(${v - 4},${v + 10},${v + 12})`;
+    g.fillRect(i * 128 + 2, j * 128 + 2, 124, 124);
+    for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`; g.fillRect(i * 128 + Math.random() * 124, j * 128 + Math.random() * 124, 3, 2); }
+  }
+}, [7, 6]);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w, ROOM.d), std(0xffffff, { map: floorTex, roughness: 0.55 }));
+floor.rotation.x = -Math.PI / 2; floor.userData.floor = true; scene.add(floor);
+
+const wallMat = std(0x8fa7a5, { roughness: 0.9 });
+const wallLow = std(0x4e6567, { roughness: 0.8 });
+function wall(w, x, z, ry) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
+  const up = new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.h - 1.0), wallMat); up.position.y = 1.0 + (ROOM.h - 1.0) / 2; g.add(up);
+  const lo = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.0), wallLow); lo.position.y = 0.5; g.add(lo);
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, 0.03), std(0xcfd8d6)); rail.position.set(0, 1.0, 0.015); g.add(rail);
+  return g;
+}
+wall(ROOM.w, 0, -ROOM.d / 2, 0);
+wall(ROOM.w, 0, ROOM.d / 2, Math.PI);
+wall(ROOM.d, -ROOM.w / 2, 0, Math.PI / 2);
+wall(ROOM.d, ROOM.w / 2, 0, -Math.PI / 2);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.w, ROOM.d), std(0xc9d3d2, { roughness: 1 }));
+ceil.rotation.x = Math.PI / 2; ceil.position.y = ROOM.h; scene.add(ceil);
+const panelMat = new THREE.MeshBasicMaterial({ color: 0xeef7f6 });
+[[-3.5, -2.5], [3.5, -2.5], [-3.5, 2.8], [3.5, 2.8]].forEach(([x, z]) => box(1.6, 0.03, 0.6, panelMat, x, ROOM.h - 0.02, z));
+
+/* ---------- lights ---------- */
+scene.add(new THREE.HemisphereLight(0xe8f4f4, 0x2a3638, 1.25));
+const dir = new THREE.DirectionalLight(0xfff4e8, 0.55); dir.position.set(3, 6, 4); scene.add(dir);
+[[-3.5, -2.5], [3.5, -2.5], [-3.5, 2.8], [3.5, 2.8]].forEach(([x, z]) => { const p = new THREE.PointLight(0xf2fbff, 9, 11, 1.6); p.position.set(x, ROOM.h - 0.25, z); scene.add(p); });
+
+/* ---------- stations ---------- */
+const stationGroups = {};
+const pickables = [floor];
+const stationMeta = {};
+function makeStation(id, groupPos, standPos, labelPos, rotY = 0) {
+  const g = new THREE.Group(); g.position.copy(groupPos); g.rotation.y = rotY; scene.add(g);
+  stationGroups[id] = g;
+  stationMeta[id] = { stand: standPos, look: labelPos.clone().setY(labelPos.y - 0.9) };
+  return g;
+}
+function tagPickables(id) { stationGroups[id].traverse((o) => { if (o.isMesh) { o.userData.station = id; pickables.push(o); } }); }
+
+/* 1. Lightbox on the back wall, left of the door */
+{
+  const g = makeStation("lightbox", new THREE.Vector3(-3.6, 0, -5.94), new THREE.Vector3(-3.6, 1.6, -3.4), new THREE.Vector3(-3.6, 2.75, -5.7));
+  const xray = canvasTex(1024, 640, (c, w, h) => {
+    c.fillStyle = "#cfe6f2"; c.fillRect(0, 0, w, h);
+    // two films
+    [[30, 30], [528, 30]].forEach(([ox, oy], fi) => {
+      const fw = 466, fh = 580;
+      c.fillStyle = "#0b1114"; c.fillRect(ox, oy, fw, fh);
+      // bone
+      const crest = fi === 0 ? 300 : 350;
+      const grd = c.createLinearGradient(0, oy + crest - 30, 0, oy + fh);
+      grd.addColorStop(0, "rgba(120,140,145,0.0)"); grd.addColorStop(0.15, "rgba(120,140,145,0.55)"); grd.addColorStop(1, "rgba(150,165,170,0.7)");
+      c.fillStyle = grd; c.fillRect(ox, oy + crest - 30, fw, fh - crest + 30);
+      for (let k = 0; k < 260; k++) { c.fillStyle = `rgba(210,225,230,${Math.random() * 0.12})`; c.fillRect(ox + Math.random() * fw, oy + crest + Math.random() * (fh - crest), 2 + Math.random() * 8, 1.5); }
+      // teeth
+      for (let t = 0; t < 3; t++) {
+        const tx = ox + 40 + t * 140, tw = 120;
+        c.fillStyle = "rgba(225,235,238,0.92)";
+        c.beginPath(); c.roundRect(tx, oy + 60, tw, 170, 30); c.fill();
+        c.fillStyle = "rgba(200,212,216,0.85)";
+        c.beginPath(); c.moveTo(tx + 14, oy + 210); c.lineTo(tx + 42, oy + 520); c.lineTo(tx + 58, oy + 520); c.lineTo(tx + 60, oy + 230); c.lineTo(tx + 66, oy + 520); c.lineTo(tx + 82, oy + 520); c.lineTo(tx + tw - 14, oy + 210); c.fill();
+        c.fillStyle = "rgba(40,55,60,0.9)"; c.fillRect(tx + 44, oy + 110, 32, 120); // pulp
+        if (fi === 0 && t === 1) { c.fillStyle = "#ffffff"; c.beginPath(); c.roundRect(tx + 6, oy + 70, 108, 70, 10); c.fill(); c.fillRect(tx + tw - 8, oy + 130, 22, 18); } // overhanging restoration
+      }
+      if (fi === 1) { c.fillStyle = "rgba(10,17,20,0.9)"; c.beginPath(); c.moveTo(ox + 165, oy + crest - 28); c.lineTo(ox + 200, oy + crest - 28); c.lineTo(ox + 178, oy + crest + 120); c.fill(); } // vertical defect
+      c.strokeStyle = "rgba(230,240,242,0.35)"; c.lineWidth = 2; c.beginPath(); c.moveTo(ox, oy + 232); c.lineTo(ox + fw, oy + 232); c.stroke(); // CEJ line
+      c.fillStyle = "rgba(230,240,242,0.65)"; c.font = `600 22px ${FONT_M}`; c.fillText(fi === 0 ? "BW  R" : "PA  #30", ox + 14, oy + fh - 16);
+    });
+  });
+  box(1.9, 1.2, 0.1, std(0xdfe5e4, { roughness: 0.4 }), 0, 1.75, 0.05, g);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(1.76, 1.06), new THREE.MeshBasicMaterial({ map: xray }));
+  face.position.set(0, 1.75, 0.105); g.add(face);
+  const glow = new THREE.PointLight(0xcfe6ff, 3, 4, 2); glow.position.set(0, 1.75, 0.6); g.add(glow);
+  box(1.0, 0.08, 0.06, std(0x2b3a3d), 0, 1.06, 0.06, g);
+  tagPickables("lightbox");
+}
+
+/* Door, centre of the back wall */
+let doorPanel, exitSignMat, exitSignTex;
+{
+  const g = makeStation("door", new THREE.Vector3(0, 0, -5.94), new THREE.Vector3(0, 1.6, -3.6), new THREE.Vector3(0, 2.95, -5.7));
+  box(1.3, 2.35, 0.12, std(0x2a3a3e), 0, 1.175, 0.04, g);
+  const pivot = new THREE.Group(); pivot.position.set(-0.56, 0, 0.1); g.add(pivot);
+  doorPanel = box(1.12, 2.2, 0.06, std(0x6d8487, { roughness: 0.5 }), 0.56, 1.1, 0, pivot);
+  box(0.9, 0.5, 0.01, std(0x5c7275), 0.56, 1.55, 0.035, pivot);
+  box(0.9, 0.6, 0.01, std(0x5c7275), 0.56, 0.6, 0.035, pivot);
+  cyl(0.025, 0.025, 0.2, metal(), 1.0, 1.05, 0.08, pivot).rotation.z = Math.PI / 2;
+  g.userData.pivot = pivot;
+  // keypad
+  const pad = canvasTex(160, 240, (c, w, h) => {
+    c.fillStyle = "#151c1e"; c.fillRect(0, 0, w, h);
+    c.fillStyle = "#2d3a3d"; for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++) c.fillRect(22 + k * 42, 70 + r * 40, 32, 30);
+    c.fillStyle = "#f06464"; c.fillRect(22, 20, 116, 30);
+  });
+  const kp = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.3), new THREE.MeshBasicMaterial({ map: pad }));
+  kp.position.set(0.85, 1.25, 0.08); g.add(kp); g.userData.keypadMat = kp.material;
+  exitSignTex = (ready) => canvasTex(256, 96, (c, w, h) => {
+    c.fillStyle = ready ? "#0f2a20" : "#2a0f0f"; c.fillRect(0, 0, w, h);
+    c.fillStyle = ready ? "#6fd4a9" : "#f06464"; c.font = `700 64px ${FONT_D}`; c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(ready ? "EXIT" : "LOCKED", w / 2, h / 2 + 3);
+  });
+  exitSignMat = new THREE.MeshBasicMaterial({ map: exitSignTex(false) });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.22), exitSignMat); sign.position.set(0, 2.6, 0.08); g.add(sign);
+  tagPickables("door");
+}
+
+/* 5. Clinical atlas poster, right of the door */
+{
+  const g = makeStation("atlas", new THREE.Vector3(3.6, 0, -5.94), new THREE.Vector3(3.6, 1.6, -3.4), new THREE.Vector3(3.6, 2.75, -5.7));
+  const tex = canvasTex(800, 620, (c, w, h) => {
+    c.fillStyle = "#f3efe9"; c.fillRect(0, 0, w, h);
+    c.fillStyle = "#1d2b2e"; c.font = `700 54px ${FONT_D}`; c.fillText("GINGIVAL ATLAS", 40, 74);
+    c.font = `500 24px ${FONT_M}`; c.fillStyle = "#58686b"; c.fillText("Describe before diagnosing", 42, 110);
+    const sw = [["#f2887b", "Coral pink", "health"], ["#d8343a", "Erythema", "inflammation"], ["#7a5a8c", "Cyanosis", "deoxygenated"], ["#efd6cf", "Pallor", "anemia, leukemia"], ["#5a3b2b", "Melanin", "physiologic"]];
+    sw.forEach(([col, name, note], i) => {
+      const x = 40 + i * 148;
+      c.fillStyle = col; c.beginPath(); c.roundRect(x, 150, 128, 170, 14); c.fill();
+      c.fillStyle = "#1d2b2e"; c.font = `700 28px ${FONT_D}`; c.fillText(name, x, 356);
+      c.fillStyle = "#58686b"; c.font = `400 18px ${FONT_M}`; c.fillText(note, x, 384);
+    });
+    c.fillStyle = "#1d2b2e"; c.font = `700 30px ${FONT_D}`; c.fillText("CONTOUR", 40, 450);
+    c.font = `400 22px ${FONT_M}`; c.fillStyle = "#3a4a4d";
+    wrapText(c, "normal · clefted · bulbous · festooned · receded · blunted · hyperplastic", 40, 490, 720, 32);
+    c.fillStyle = "#d8343a"; c.font = `700 22px ${FONT_M}`; c.fillText("Board alert: acute or chronic?", 40, 580);
+  });
+  box(1.5, 1.18, 0.05, std(0x2b3a3d), 0, 1.75, 0.03, g);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(1.42, 1.1), std(0xffffff, { map: tex, roughness: 0.9 })); face.position.set(0, 1.75, 0.06); g.add(face);
+  // small side table with an open book
+  box(0.9, 0.04, 0.5, std(0x7a6a58), 0, 0.82, 0.4, g);
+  [-0.35, 0.35].forEach((x) => [0.2, 0.6].forEach((z) => cyl(0.02, 0.02, 0.8, metal(0x6c7678), x, 0.4, z, g, 8)));
+  const pageMat = std(0xf5f1e8);
+  const p1 = box(0.32, 0.02, 0.42, pageMat, -0.17, 0.86, 0.4, g); p1.rotation.z = 0.08;
+  const p2 = box(0.32, 0.02, 0.42, pageMat, 0.17, 0.86, 0.4, g); p2.rotation.z = -0.08;
+  box(0.68, 0.03, 0.46, std(0x7d2f2a), 0, 0.845, 0.4, g);
+  tagPickables("atlas");
+}
+
+/* 3. Charting terminal on the left wall */
+{
+  const g0 = makeStation("chart", new THREE.Vector3(-6.98, 0, -1.6), new THREE.Vector3(-4.6, 1.6, -1.6), new THREE.Vector3(-6.3, 2.35, -1.6), Math.PI / 2);
+  const g = new THREE.Group(); g.position.z = 0.38; g0.add(g);
+  const desk = std(0xa89a86, { roughness: 0.6 });
+  box(2.0, 0.05, 0.8, desk, 0, 0.76, 0.35, g);
+  [[-0.95, 0.02], [0.95, 0.02], [-0.95, 0.7], [0.95, 0.7]].forEach(([x, z]) => box(0.05, 0.76, 0.05, metal(0x5e686a), x, 0.38, z, g));
+  const chartTex = canvasTex(900, 540, (c, w, h) => {
+    c.fillStyle = "#0c1a1f"; c.fillRect(0, 0, w, h);
+    c.fillStyle = "#f2887b"; c.font = `700 40px ${FONT_D}`; c.fillText("PERIODONTAL CHART  ·  MAXILLARY RIGHT", 30, 56);
+    c.font = `500 26px ${FONT_M}`;
+    const teeth = ["#1", "#2", "#3", "#4", "#5", "#6"];
+    const pd = [["", "", ""], ["4", "3", "5"], ["4", "2", "6"], ["3", "2", "3"], ["3", "2", "4"], ["2", "2", "3"]];
+    const rec = [["", "", ""], ["0", "0", "1"], ["2", "0", "1"], ["0", "0", "0"], ["0", "0", "0"], ["0", "0", "0"]];
+    teeth.forEach((t, i) => {
+      const x = 40 + i * 140;
+      c.fillStyle = "#92a9b0"; c.fillText(t, x + 30, 110);
+      c.strokeStyle = "#27404a"; c.strokeRect(x, 125, 126, 60); c.strokeRect(x, 195, 126, 60);
+      c.fillStyle = "#e6eff1"; pd[i].forEach((v, k) => c.fillText(v, x + 12 + k * 40, 166));
+      c.fillStyle = "#e6eff1"; rec[i].forEach((v, k) => c.fillText(v, x + 12 + k * 40, 236));
+      if (i === 1 || i === 2) { c.fillStyle = "#f06464"; c.beginPath(); c.arc(x + 112, 140, 7, 0, 7); c.fill(); }
+    });
+    c.fillStyle = "#92a9b0"; c.font = `500 22px ${FONT_M}`; c.fillText("PD", 6, 166); c.fillText("REC", 0, 236);
+    c.fillStyle = "#f1b65c"; c.font = `600 30px ${FONT_M}`; c.fillText("CAL = PD + recession  (margin apical to CEJ)", 30, 320);
+    c.fillStyle = "#6fd4a9"; c.fillText("Stage ___   Grade ___   Extent ___", 30, 380);
+    c.fillStyle = "#92a9b0"; c.font = `500 22px ${FONT_M}`; c.fillText("> awaiting diagnosis_", 30, 470);
+  });
+  box(1.0, 0.62, 0.05, std(0x1a2224), 0, 1.27, 0.25, g);
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.94, 0.56), new THREE.MeshBasicMaterial({ map: chartTex })); scr.position.set(0, 1.27, 0.276); g.add(scr);
+  box(0.06, 0.2, 0.06, std(0x1a2224), 0, 0.88, 0.22, g);
+  box(0.6, 0.02, 0.2, std(0x2b3436), 0, 0.79, 0.6, g);
+  // grading poster above the desk: an in-room clue
+  const poster = canvasTex(700, 360, (c, w, h) => {
+    c.fillStyle = "#f3efe9"; c.fillRect(0, 0, w, h);
+    c.fillStyle = "#1d2b2e"; c.font = `700 48px ${FONT_D}`; c.fillText("GRADING: BONE LOSS ÷ AGE", 30, 64);
+    c.font = `600 34px ${FONT_M}`;
+    [["A", "< 0.25", "#3c8a68"], ["B", "0.25 – 1.0", "#b07a1c"], ["C", "> 1.0", "#c0392b"]].forEach(([g2, v, col], i) => {
+      c.fillStyle = col; c.fillRect(30, 100 + i * 78, 70, 60);
+      c.fillStyle = "#fff"; c.fillText(g2, 50, 142 + i * 78);
+      c.fillStyle = "#1d2b2e"; c.fillText(v, 130, 142 + i * 78);
+    });
+    c.fillStyle = "#58686b"; c.font = `400 22px ${FONT_M}`; c.fillText("≥10 cig/day or HbA1c ≥7%  →  C", 380, 300);
+  });
+  const pm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.57), std(0xffffff, { map: poster, roughness: 0.9 })); pm.position.set(0, 2.25, 0.02); g0.add(pm);
+  // stool
+  cyl(0.22, 0.22, 0.06, std(0x34474b), 0, 0.55, 1.05, g); cyl(0.03, 0.03, 0.5, metal(0x6c7678), 0, 0.28, 1.05, g, 8);
+  tagPickables("chart");
+}
+
+/* 4. Case file cabinet on the left wall, nearer the front */
+{
+  const g = makeStation("cases", new THREE.Vector3(-6.98, 0, 2.6), new THREE.Vector3(-4.7, 1.6, 2.6), new THREE.Vector3(-6.3, 2.25, 2.6), Math.PI / 2);
+  const body = std(0x56707a, { roughness: 0.45, metalness: 0.4 });
+  box(0.75, 1.4, 0.65, body, 0, 0.7, 0.33, g);
+  for (let i = 0; i < 4; i++) {
+    box(0.68, 0.3, 0.02, std(0x648390, { roughness: 0.4, metalness: 0.4 }), 0, 0.2 + i * 0.33, 0.66, g);
+    box(0.16, 0.03, 0.03, metal(), 0, 0.27 + i * 0.33, 0.68, g);
+    box(0.12, 0.05, 0.005, std(0xf3efe9), 0, 0.2 + i * 0.33, 0.672, g);
+  }
+  // top drawer pulled open with a folder
+  const fold = std(0xd9b46a, { roughness: 0.8 });
+  const f1 = box(0.36, 0.02, 0.27, fold, 0.05, 1.42, 0.35, g); f1.rotation.y = 0.2;
+  const f2 = box(0.36, 0.02, 0.27, std(0xe8d5a6), -0.05, 1.44, 0.3, g); f2.rotation.y = -0.15;
+  const film = box(0.2, 0.005, 0.14, std(0x223038, { roughness: 0.3 }), 0.02, 1.455, 0.33, g); film.rotation.y = 0.4;
+  tagPickables("cases");
+}
+
+/* 6. Microscope bench on the right wall */
+{
+  const g = makeStation("micro", new THREE.Vector3(6.98, 0, -1.6), new THREE.Vector3(4.6, 1.6, -1.6), new THREE.Vector3(6.3, 2.3, -1.6), -Math.PI / 2);
+  box(2.2, 0.06, 0.75, std(0x2c3a3e, { roughness: 0.35 }), 0, 0.9, 0.38, g);
+  box(2.2, 0.84, 0.7, std(0xdfe5e4, { roughness: 0.6 }), 0, 0.45, 0.36, g);
+  [-0.55, 0, 0.55].forEach((x) => box(0.5, 0.6, 0.01, std(0xcdd5d4), x, 0.5, 0.715, g));
+  const scope = new THREE.Group(); scope.position.set(0, 0.93, 0.4); g.add(scope);
+  const white = std(0xf1f3f2, { roughness: 0.35 }), dark = std(0x1d2629, { roughness: 0.4 });
+  box(0.3, 0.05, 0.36, white, 0, 0.025, 0, scope);
+  const arm = box(0.08, 0.42, 0.1, white, 0, 0.25, -0.12, scope); arm.rotation.x = -0.15;
+  box(0.2, 0.025, 0.18, dark, 0, 0.17, 0.04, scope);
+  const tube = cyl(0.04, 0.045, 0.24, dark, 0, 0.42, -0.02, scope, 16); tube.rotation.x = 0.5;
+  cyl(0.02, 0.02, 0.12, dark, -0.03, 0.55, -0.1, scope, 12).rotation.x = 0.5;
+  cyl(0.02, 0.02, 0.12, dark, 0.03, 0.55, -0.1, scope, 12).rotation.x = 0.5;
+  cyl(0.03, 0.025, 0.08, metal(), 0, 0.26, 0.04, scope, 12);
+  cyl(0.06, 0.06, 0.03, metal(0x88959a), 0.12, 0.14, -0.1, scope, 16).rotation.z = Math.PI / 2;
+  // petri dishes and slides
+  const glass = new THREE.MeshStandardMaterial({ color: 0xd9f1f4, roughness: 0.1, transparent: true, opacity: 0.55 });
+  [[-0.6, 0.3], [-0.42, 0.5], [0.55, 0.45]].forEach(([x, z]) => {
+    cyl(0.09, 0.09, 0.025, glass, x, 0.945, z, g, 24);
+    cyl(0.08, 0.08, 0.01, std(0xe6c56f, { roughness: 0.9 }), x, 0.94, z, g, 24);
+  });
+  for (let i = 0; i < 4; i++) box(0.07, 0.005, 0.2, glass, 0.75 + i * 0.09, 0.935, 0.25, g);
+  tagPickables("micro");
+}
+
+/* 2. Bone model on a pedestal, right front */
+{
+  const g = makeStation("bone", new THREE.Vector3(5.6, 0, 3.0), new THREE.Vector3(4.0, 1.6, 2.4), new THREE.Vector3(5.6, 2.15, 3.0));
+  cyl(0.32, 0.38, 1.0, std(0x2b3a3d, { roughness: 0.5 }), 0, 0.5, 0, g, 32);
+  cyl(0.4, 0.4, 0.04, std(0x3d5054), 0, 1.02, 0, g, 32);
+  const jaw = new THREE.Group(); jaw.position.set(0, 1.12, 0); g.add(jaw);
+  const boneMat = std(0xe8dcc2, { roughness: 0.85 });
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.055, 14, 40, Math.PI), boneMat);
+  arch.rotation.x = Math.PI / 2; arch.scale.set(1, 1.25, 1); jaw.add(arch);
+  const toothMat = std(0xfbfaf4, { roughness: 0.35 });
+  for (let i = 0; i <= 12; i++) {
+    const a = (i / 12) * Math.PI;
+    const r = 0.24;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r * 1.25;
+    const molar = i < 3 || i > 9;
+    const t = new THREE.Mesh(molar ? new THREE.BoxGeometry(0.06, 0.07, 0.06) : new THREE.CylinderGeometry(0.022, 0.018, 0.08, 10), toothMat);
+    const drop = (i === 2 || i === 3) ? -0.02 : 0;
+    t.position.set(x, 0.07 + drop, z); t.rotation.y = -a; jaw.add(t);
+  }
+  // a crater on one side
+  const crater = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), std(0x9d8a68, { roughness: 1 })); crater.position.set(Math.cos(0.65) * 0.24, 0.04, Math.sin(0.65) * 0.3); jaw.add(crater);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xcfe9ef, roughness: 0.05, transparent: true, opacity: 0.16 }));
+  dome.position.y = 1.04; g.add(dome);
+  g.userData.spin = jaw;
+  tagPickables("bone");
+}
+
+/* Dental chair in the middle, and 7. instrument tray beside it */
+{
+  const chair = new THREE.Group(); chair.position.set(1.3, 0, -0.9); chair.rotation.y = Math.PI; scene.add(chair);
+  const uph = std(0x2f6f78, { roughness: 0.55 });
+  const frame = std(0xe9eeee, { roughness: 0.4 });
+  cyl(0.45, 0.5, 0.08, frame, 0, 0.04, 0, chair, 32);
+  cyl(0.12, 0.14, 0.4, frame, 0, 0.27, 0, chair, 16);
+  box(0.62, 0.14, 1.0, uph, 0, 0.53, -0.05, chair);
+  const back = box(0.62, 0.12, 0.85, uph, 0, 0.8, 0.78, chair); back.rotation.x = -0.75;
+  const head = box(0.36, 0.08, 0.26, uph, 0, 1.12, 1.18, chair); head.rotation.x = -0.4;
+  const leg = box(0.56, 0.1, 0.6, uph, 0, 0.38, -0.72, chair); leg.rotation.x = 0.55;
+  [-0.38, 0.38].forEach((x) => box(0.08, 0.06, 0.6, frame, x, 0.72, 0.2, chair));
+  // overhead operatory light
+  const pole = cyl(0.04, 0.04, 2.3, frame, -0.9, 1.15, 1.0, chair, 12);
+  const boom = box(0.05, 0.05, 1.0, frame, -0.9, 2.28, 0.55, chair); boom.rotation.y = 0.6;
+  const lamp = cyl(0.18, 0.12, 0.1, frame, -0.55, 2.1, 0.15, chair, 24); lamp.rotation.x = 0.6;
+  const lampFace = new THREE.Mesh(new THREE.CircleGeometry(0.14, 24), new THREE.MeshBasicMaterial({ color: 0xfffbe8 }));
+  lampFace.position.set(-0.55, 2.06, 0.18); lampFace.rotation.x = Math.PI / 2 + 0.6; chair.add(lampFace);
+  const spot = new THREE.SpotLight(0xfff7e6, 25, 5, 0.45, 0.5, 1.5); spot.position.set(1.3, 2.1, -1.05); spot.target.position.set(1.3, 1.0, -1.8); scene.add(spot, spot.target);
+  // clinician stool
+  cyl(0.22, 0.22, 0.07, uph, 0.45, 0.55, -0.2, scene, 24); cyl(0.03, 0.03, 0.5, metal(0x6c7678), 0.45, 0.28, -0.2, scene, 8);
+
+  const g = makeStation("tray", new THREE.Vector3(2.5, 0, 0.1), new THREE.Vector3(2.3, 1.6, 2.0), new THREE.Vector3(2.5, 1.8, 0.1));
+  box(0.08, 0.85, 0.08, metal(0x8c979a), 0, 0.43, 0, g);
+  cyl(0.28, 0.3, 0.04, std(0x34474b), 0, 0.02, 0, g, 5);
+  box(0.62, 0.025, 0.42, metal(0xc7d0d3), 0, 0.88, 0, g);
+  box(0.62, 0.04, 0.01, metal(0xc7d0d3), 0, 0.9, 0.21, g); box(0.62, 0.04, 0.01, metal(0xc7d0d3), 0, 0.9, -0.21, g);
+  const handleMat = metal(0xa9b6bb);
+  for (let i = 0; i < 6; i++) {
+    const ins = new THREE.Group(); ins.position.set(-0.24 + i * 0.095, 0.905, 0); g.add(ins);
+    const h = cyl(0.009, 0.009, 0.3, handleMat, 0, 0, 0, ins, 8); h.rotation.x = Math.PI / 2;
+    const tip1 = cyl(0.003, 0.005, 0.06, metal(0xe0e6e8), 0, 0.006, 0.17, ins, 6); tip1.rotation.x = Math.PI / 2 - 0.6;
+    const tip2 = cyl(0.003, 0.005, 0.06, metal(0xe0e6e8), 0, 0.006, -0.17, ins, 6); tip2.rotation.x = Math.PI / 2 + 0.6;
+    const band = cyl(0.0105, 0.0105, 0.02, std([0xf2887b, 0x6fd4a9, 0xf1b65c, 0x7aa7f0, 0xf2887b, 0xe6eff1][i]), 0, 0, 0.06, ins, 8); band.rotation.x = Math.PI / 2;
+  }
+  // mirror
+  const mir = cyl(0.025, 0.025, 0.006, metal(0xeaf2f4), 0.27, 0.905, 0.12, g, 20);
+  tagPickables("tray");
+}
+
+/* Front wall: sink counter and cabinets for atmosphere */
+{
+  const g = new THREE.Group(); g.position.set(0, 0, 5.68); g.rotation.y = Math.PI; scene.add(g);
+  box(4.2, 0.9, 0.6, std(0xdfe5e4, { roughness: 0.6 }), 0, 0.45, 0, g);
+  box(4.3, 0.05, 0.65, std(0x2c3a3e, { roughness: 0.3 }), 0, 0.92, 0, g);
+  box(4.2, 0.7, 0.35, std(0xdfe5e4, { roughness: 0.6 }), 0, 2.1, -0.13, g);
+  const basin = box(0.5, 0.02, 0.36, metal(0x9aa6a9), -1.2, 0.95, 0, g);
+  cyl(0.015, 0.015, 0.25, metal(), -1.2, 1.07, 0.2, g, 8);
+  for (let i = 0; i < 6; i++) box(0.66, 0.6, 0.01, std(0xcdd5d4), -1.75 + i * 0.7, 0.45, 0.305, g);
+  const bins = [0xf2887b, 0x6fd4a9, 0xf1b65c];
+  bins.forEach((c, i) => box(0.3, 0.18, 0.25, std(c, { roughness: 0.6 }), 0.6 + i * 0.4, 1.04, 0, g));
+}
+
+/* ---------- labels, rings ---------- */
+const labels = {}, rings = {};
+function labelTex(n, name, solved, digit) {
+  return canvasTex(512, 128, (c, w, h) => {
+    c.fillStyle = solved ? "rgba(15,42,32,0.92)" : "rgba(16,29,34,0.9)";
+    c.beginPath(); c.roundRect(4, 4, w - 8, h - 8, 22); c.fill();
+    c.strokeStyle = solved ? "#6fd4a9" : "#f2887b"; c.lineWidth = 4; c.stroke();
+    c.fillStyle = solved ? "#6fd4a9" : "#f2887b"; c.beginPath(); c.arc(64, 64, 38, 0, 7); c.fill();
+    c.fillStyle = solved ? "#0a1316" : "#2a0f0b"; c.font = `700 44px ${FONT_M}`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(n, 64, 67);
+    c.textAlign = "left"; c.fillStyle = "#e6eff1"; c.font = `700 50px ${FONT_D}`;
+    c.fillText(name.toUpperCase(), 122, 56);
+    c.font = `500 26px ${FONT_M}`; c.fillStyle = solved ? "#6fd4a9" : "#92a9b0";
+    c.fillText(solved ? `DIGIT ${digit}` : "LOCKED", 124, 98);
+  });
+}
+function makeLabel(id, n, name) {
+  const pos = stationMeta[id].look.clone().setY(stationMeta[id].look.y + 0.9);
+  const mat = new THREE.SpriteMaterial({ map: labelTex(n, name, false), depthWrite: false, depthTest: false, transparent: true });
+  const sp = new THREE.Sprite(mat); sp.renderOrder = 10; sp.scale.set(1.15, 0.29, 1); sp.position.copy(pos); scene.add(sp);
+  labels[id] = sp;
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xf2887b, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 48), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  const sp2 = stationMeta[id].stand; ring.position.set(sp2.x, 0.012, sp2.z); scene.add(ring);
+  rings[id] = ring;
+}
+G.stations().forEach((s) => makeLabel(s.id, String(s.n), s.short));
+{
+  const pos = stationMeta.door.look.clone().setY(stationMeta.door.look.y + 0.9);
+  const mat = new THREE.SpriteMaterial({ map: canvasTex(512, 128, (c, w, h) => { c.fillStyle = "rgba(16,29,34,0.9)"; c.beginPath(); c.roundRect(4, 4, w - 8, h - 8, 22); c.fill(); c.strokeStyle = "#e6eff1"; c.lineWidth = 4; c.stroke(); c.fillStyle = "#e6eff1"; c.font = `700 52px ${FONT_D}`; c.textAlign = "center"; c.textBaseline = "middle"; c.font = `700 46px ${FONT_D}`; c.fillText("EXIT · 7-DIGIT CODE", w / 2, h / 2 + 3); }), depthWrite: false, depthTest: false, transparent: true });
+  const sp = new THREE.Sprite(mat); sp.scale.set(1.15, 0.29, 1); sp.position.copy(pos); scene.add(sp);
+}
+
+/* ---------- camera control ---------- */
+let yaw = 0, pitch = -0.05;
+camera.position.set(0, 1.6, 4.4);
+let walkTarget = null, lookTarget = null, onArrive = null;
+const keys = {};
+addEventListener("keydown", (e) => {
+  if (G.isModalOpen() || /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || "")) return;
+  keys[e.key.toLowerCase()] = true;
+});
+addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const tip = document.getElementById("tip");
+let down = null, dragging = false, hoverId = null;
+
+function pick(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(pickables, false);
+  return hits[0] || null;
+}
+canvas.addEventListener("pointerdown", (e) => {
+  if (!G.isStarted()) return;
+  down = { x: e.clientX, y: e.clientY, yaw, pitch, id: e.pointerId };
+  dragging = false;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (down) {
+    const dx = e.clientX - down.x, dy = e.clientY - down.y;
+    if (!dragging && Math.hypot(dx, dy) > 6) { dragging = true; canvas.classList.add("dragging"); lookTarget = null; }
+    if (dragging) {
+      const k = e.pointerType === "touch" ? 0.006 : 0.004;
+      yaw = down.yaw + dx * k; pitch = Math.max(-1.1, Math.min(1.0, down.pitch + dy * k));
+    }
+    return;
+  }
+  if (e.pointerType !== "mouse" || !G.isStarted()) return;
+  const h = pick(e.clientX, e.clientY);
+  const id = h && h.object.userData.station;
+  hoverId = id || null;
+  canvas.classList.toggle("pointing", !!id);
+  if (id) {
+    const s = G.stations().find((x) => x.id === id);
+    tip.textContent = id === "door" ? "Exit door" : `${s.n}. ${s.name}${s.solved ? " · digit " + s.digit : ""}`;
+    tip.style.left = e.clientX + "px"; tip.style.top = e.clientY + "px"; tip.hidden = false;
+  } else tip.hidden = true;
+});
+canvas.addEventListener("pointerup", (e) => {
+  if (!down) return;
+  const wasDrag = dragging;
+  down = null; dragging = false; canvas.classList.remove("dragging");
+  if (wasDrag || G.isModalOpen()) return;
+  const h = pick(e.clientX, e.clientY);
+  if (!h) return;
+  const id = h.object.userData.station;
+  if (id) { tip.hidden = true; G.openStation(id); return; }
+  if (h.object.userData.floor) {
+    walkTarget = new THREE.Vector3(clampX(h.point.x), 1.6, clampZ(h.point.z));
+    onArrive = null;
+  }
+});
+canvas.addEventListener("pointercancel", () => { down = null; dragging = false; canvas.classList.remove("dragging"); });
+const clampX = (x) => Math.max(-BOUNDS.x, Math.min(BOUNDS.x, x));
+const clampZ = (z) => Math.max(BOUNDS.zMin, Math.min(BOUNDS.zMax, z));
+
+function angleTo(from, to) {
+  const d = to.clone().sub(from);
+  return { yaw: Math.atan2(-d.x, -d.z), pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) };
+}
+function focus(id, cb) {
+  const m = stationMeta[id];
+  if (!m) { cb && cb(); return; }
+  walkTarget = m.stand.clone();
+  lookTarget = angleTo(m.stand, m.look);
+  onArrive = cb;
+  setTimeout(() => { if (onArrive === cb && walkTarget) { camera.position.copy(walkTarget); finishWalk(); } }, 1800);
+  if (reduceMotion) { camera.position.copy(walkTarget); yaw = lookTarget.yaw; pitch = lookTarget.pitch; finishWalk(); }
+}
+function finishWalk() {
+  walkTarget = null;
+  if (lookTarget) { yaw = lookTarget.yaw; pitch = lookTarget.pitch; lookTarget = null; }
+  const cb = onArrive; onArrive = null; cb && cb();
+}
+
+/* ---------- API for the game ---------- */
+let doorOpen = 0, doorOpening = false;
+const api = {
+  focus,
+  markSolved(id, digit) {
+    const s = G.stations().find((x) => x.id === id);
+    labels[id].material.map.dispose();
+    labels[id].material.map = labelTex(String(s.n), s.short, true, digit);
+    labels[id].material.needsUpdate = true;
+    rings[id].material.color.set(0x6fd4a9);
+  },
+  markDoorReady() {
+    exitSignMat.map.dispose(); exitSignMat.map = exitSignTex(true); exitSignMat.needsUpdate = true;
+  },
+  openDoor() { doorOpening = true; },
+  reset() {
+    G.stations().forEach((s) => {
+      labels[s.id].material.map.dispose();
+      labels[s.id].material.map = labelTex(String(s.n), s.short, false);
+      labels[s.id].material.needsUpdate = true;
+      rings[s.id].material.color.set(0xf2887b);
+    });
+    exitSignMat.map.dispose(); exitSignMat.map = exitSignTex(false); exitSignMat.needsUpdate = true;
+    doorOpen = 0; doorOpening = false; stationGroups.door.userData.pivot.rotation.y = 0;
+    camera.position.set(0, 1.6, 4.4); yaw = 0; pitch = -0.05;
+  }
+};
+// restore solved markers if the game resumed mid-run
+G.stations().forEach((s) => { if (s.solved) api.markSolved(s.id, s.digit); });
+if (G.allSolved()) api.markDoorReady();
+G.attach3D(api);
+
+/* ---------- loop ---------- */
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = w < h ? 80 : 68;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+const clock = new THREE.Clock();
+const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  // keyboard walking
+  if (G.isStarted() && !G.isModalOpen()) {
+    let f = 0, s = 0;
+    if (keys.w || keys.arrowup) f += 1; if (keys.s || keys.arrowdown) f -= 1;
+    if (keys.a || keys.arrowleft) s -= 1; if (keys.d || keys.arrowright) s += 1;
+    if (keys.q) yaw += 1.6 * dt; if (keys.e) yaw -= 1.6 * dt;
+    if (f || s) {
+      walkTarget = null; lookTarget = null; onArrive = null;
+      fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw)); right.set(Math.cos(yaw), 0, -Math.sin(yaw));
+      const sp = 3.0 * dt;
+      camera.position.addScaledVector(fwd, f * sp).addScaledVector(right, s * sp);
+      camera.position.x = clampX(camera.position.x); camera.position.z = clampZ(camera.position.z);
+    }
+  }
+  // auto-walk
+  if (walkTarget) {
+    const d = walkTarget.clone().sub(camera.position); d.y = 0;
+    const dist = d.length();
+    const step = 6 * dt;
+    if (lookTarget) {
+      let dy = lookTarget.yaw - yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      yaw += dy * Math.min(1, 6 * dt); pitch += (lookTarget.pitch - pitch) * Math.min(1, 6 * dt);
+    }
+    if (dist < 0.05) { camera.position.x = walkTarget.x; camera.position.z = walkTarget.z; finishWalk(); }
+    else camera.position.addScaledVector(d.normalize(), Math.min(step, dist));
+  }
+  camera.rotation.set(pitch, yaw, 0);
+
+  if (!reduceMotion) {
+    for (const id in rings) { const r = rings[id]; const solved = r.material.color.getHex() === 0x6fd4a9; r.material.opacity = solved ? 0.45 : 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(t * 2.4 + r.position.x)); r.scale.setScalar(solved ? 1 : 1 + 0.06 * Math.sin(t * 2.4 + r.position.x)); }
+    for (const id in labels) labels[id].position.y = stationMeta[id].look.y + 0.9 + 0.03 * Math.sin(t * 1.5 + labels[id].position.x);
+  }
+  // keep labels a readable size: shrink up close, grow at a distance
+  for (const id in labels) {
+    const k = Math.max(0.5, Math.min(1.5, labels[id].position.distanceTo(camera.position) / 4.5));
+    labels[id].scale.set(1.15 * k, 0.29 * k, 1);
+  }
+  if (!reduceMotion) {
+    stationGroups.bone.userData.spin.rotation.y = Math.sin(t * 0.4) * 0.6;
+  }
+  for (const id in stationGroups) {
+    if (id === "door") continue;
+    const target = hoverId === id ? 1.03 : 1;
+    const g = stationGroups[id]; const sc = g.scale.x + (target - g.scale.x) * Math.min(1, 10 * dt); g.scale.setScalar(sc);
+  }
+  if (doorOpening && doorOpen < 1) { doorOpen = Math.min(1, doorOpen + dt * 0.9); stationGroups.door.userData.pivot.rotation.y = -1.4 * (1 - Math.pow(1 - doorOpen, 3)); }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
